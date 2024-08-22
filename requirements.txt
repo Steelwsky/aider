@@ -198,11 +198,12 @@ tqdm==4.66.5
     # via
     #   huggingface-hub
     #   openai
-tree-sitter==0.21.3
+tree-sitter==0.22.6
     # via
     #   -r requirements/requirements.in
     #   tree-sitter-languages
-tree-sitter-languages==1.10.2
+# tree-sitter-languages==1.10.2
+tree-sitter-language-pack==0.2.0
     # via grep-ast
 typing-extensions==4.12.2
     # via
