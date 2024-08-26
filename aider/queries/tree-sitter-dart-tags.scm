@@ -45,7 +45,8 @@
   scope: (identifier) @name.reference.namespace
   name: (identifier) @name.reference.member)
 
+; Scoped type identifiers
 ((scoped_identifier
   scope: (identifier) @name.reference.type
   name: (identifier) @name.reference.type)
- (#match? @name.reference.type "^[a-zA-Z]"))
+  (#match? @name.reference.type "^[A-Z]"))
