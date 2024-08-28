@@ -60,7 +60,8 @@ gitdb==4.0.11
     # via gitpython
 gitpython==3.1.43
     # via -r requirements/requirements.in
-grep-ast==0.3.3
+# grep-ast==0.3.3
+grep-ast @ git+https://github.com/gohanlon/grep-ast.git@adopt-tree-sitter-language-pack#egg=grep-ast
     # via -r requirements/requirements.in
 h11==0.14.0
     # via httpcore
@@ -198,7 +199,7 @@ tqdm==4.66.5
     # via
     #   huggingface-hub
     #   openai
-tree-sitter==0.22.6
+tree-sitter==0.22.3
     # via
     #   -r requirements/requirements.in
     #   tree-sitter-languages
