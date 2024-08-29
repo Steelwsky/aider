@@ -36,9 +36,9 @@ usage: aider [-h] [--openai-api-key] [--anthropic-api-key] [--model]
              [--show-model-warnings | --no-show-model-warnings]
              [--map-tokens] [--map-refresh]
              [--cache-prompts | --no-cache-prompts]
-             [--map-multiplier-no-files] [--max-chat-history-tokens]
-             [--env-file] [--input-history-file]
-             [--chat-history-file]
+             [--cache-keepalive-pings] [--map-multiplier-no-files]
+             [--max-chat-history-tokens] [--env-file]
+             [--input-history-file] [--chat-history-file]
              [--restore-chat-history | --no-restore-chat-history]
              [--llm-history-file] [--dark-mode] [--light-mode]
              [--pretty | --no-pretty] [--stream | --no-stream]
@@ -57,9 +57,11 @@ usage: aider [-h] [--openai-api-key] [--anthropic-api-key] [--model]
              [--test-cmd] [--auto-test | --no-auto-test] [--test]
              [--file] [--read] [--vim] [--voice-language]
              [--version] [--just-check-update]
-             [--check-update | --no-check-update] [--apply] [--yes]
+             [--check-update | --no-check-update]
+             [--install-main-branch] [--upgrade] [--apply] [--yes]
              [-v] [--show-repo-map] [--show-prompts] [--exit]
              [--message] [--message-file] [--encoding] [-c] [--gui]
+             [--suggest-shell-commands | --no-suggest-shell-commands]
 
 ```
 
@@ -101,7 +103,7 @@ Aliases:
   - `-4`
 
 ### `--4o`
-Use gpt-4o model for the main chat  
+Use gpt-4o-2024-08-06 model for the main chat  
 Environment variable: `AIDER_4O`  
 
 ### `--mini`
@@ -204,6 +206,11 @@ Environment variable: `AIDER_CACHE_PROMPTS`
 Aliases:
   - `--cache-prompts`
   - `--no-cache-prompts`
+
+### `--cache-keepalive-pings VALUE`
+Number of times to ping at 5min intervals to keep prompt cache warm (default: 0)  
+Default: 0  
+Environment variable: `AIDER_CACHE_KEEPALIVE_PINGS`  
 
 ### `--map-multiplier-no-files VALUE`
 Multiplier for map tokens when no files are specified (default: 2)  
@@ -467,6 +474,19 @@ Aliases:
   - `--check-update`
   - `--no-check-update`
 
+### `--install-main-branch`
+Install the latest version from the main branch  
+Default: False  
+Environment variable: `AIDER_INSTALL_MAIN_BRANCH`  
+
+### `--upgrade`
+Upgrade aider to the latest version from PyPI  
+Default: False  
+Environment variable: `AIDER_UPGRADE`  
+Aliases:
+  - `--upgrade`
+  - `--update`
+
 ### `--apply FILE`
 Apply the changes from the given file instead of running the chat (debug)  
 Environment variable: `AIDER_APPLY`  
@@ -531,4 +551,12 @@ Environment variable: `AIDER_GUI`
 Aliases:
   - `--gui`
   - `--browser`
+
+### `--suggest-shell-commands`
+Enable/disable suggesting shell commands (default: True)  
+Default: True  
+Environment variable: `AIDER_SUGGEST_SHELL_COMMANDS`  
+Aliases:
+  - `--suggest-shell-commands`
+  - `--no-suggest-shell-commands`
 <!--[[[end]]]-->

@@ -2,6 +2,7 @@ import colorsys
 import math
 import os
 import random
+import sqlite3
 import sys
 import time
 import warnings
@@ -13,7 +14,6 @@ from diskcache import Cache
 from grep_ast import TreeContext, filename_to_lang
 from pygments.lexers import guess_lexer_for_filename
 from pygments.token import Token
-from pygments.util import ClassNotFound
 from tqdm import tqdm
 
 from aider.dump import dump
@@ -69,6 +69,11 @@ class RepoMap:
         self.map_cache = {}
         self.map_processing_time = 0
         self.last_map = None
+
+        if self.verbose:
+            self.io.tool_output(
+                f"RepoMap initialized with map_mul_no_files: {self.map_mul_no_files}"
+            )
 
     def token_count(self, text):
         len_text = len(text)
@@ -159,9 +164,11 @@ class RepoMap:
 
     def load_tags_cache(self):
         path = Path(self.root) / self.TAGS_CACHE_DIR
-        if not path.exists():
-            self.cache_missing = True
-        self.TAGS_CACHE = Cache(path)
+        try:
+            self.TAGS_CACHE = Cache(path)
+        except sqlite3.OperationalError:
+            self.io.tool_error(f"Unable to use tags cache, delete {path} to resolve.")
+            self.TAGS_CACHE = dict()
 
     def save_tags_cache(self):
         pass
@@ -246,7 +253,8 @@ class RepoMap:
 
         try:
             lexer = guess_lexer_for_filename(fname, code)
-        except ClassNotFound:
+        except Exception as ex:  # On Windows, bad ref to time.clock which is deprecated?
+            self.io.tool_error(f"Error lexing {fname}: {ex}")
             return
 
         tokens = list(lexer.get_tokens(code))

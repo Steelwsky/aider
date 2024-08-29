@@ -452,6 +452,29 @@ class TestCommands(TestCase):
 
             commands.cmd_add(str(dname))
 
+            dump(coder.abs_fnames)
+            self.assertIn(str(fname.resolve()), coder.abs_fnames)
+
+    def test_cmd_add_dirname_with_special_chars_git(self):
+        with GitTemporaryDirectory():
+            io = InputOutput(pretty=False, yes=False)
+            from aider.coders import Coder
+
+            coder = Coder.create(self.GPT35, None, io)
+            commands = Commands(io, coder)
+
+            dname = Path("with[brackets]")
+            dname.mkdir()
+            fname = dname / "filename.txt"
+            fname.touch()
+
+            repo = git.Repo()
+            repo.git.add(str(fname))
+            repo.git.commit("-m", "init")
+
+            commands.cmd_add(str(dname))
+
+            dump(coder.abs_fnames)
             self.assertIn(str(fname.resolve()), coder.abs_fnames)
 
     def test_cmd_add_abs_filename(self):
@@ -855,6 +878,71 @@ class TestCommands(TestCase):
         finally:
             os.unlink(external_file_path)
 
+    def test_cmd_read_only_with_multiple_files(self):
+        with GitTemporaryDirectory() as repo_dir:
+            io = InputOutput(pretty=False, yes=False)
+            coder = Coder.create(self.GPT35, None, io)
+            commands = Commands(io, coder)
+
+            # Create multiple test files
+            test_files = ["test_file1.txt", "test_file2.txt", "test_file3.txt"]
+            for file_name in test_files:
+                file_path = Path(repo_dir) / file_name
+                file_path.write_text(f"Content of {file_name}")
+
+            # Test the /read-only command with multiple files
+            commands.cmd_read_only(" ".join(test_files))
+
+            # Check if all test files were added to abs_read_only_fnames
+            for file_name in test_files:
+                file_path = Path(repo_dir) / file_name
+                self.assertTrue(
+                    any(
+                        os.path.samefile(str(file_path), fname)
+                        for fname in coder.abs_read_only_fnames
+                    )
+                )
+
+            # Test dropping all read-only files
+            commands.cmd_drop(" ".join(test_files))
+
+            # Check if all files were removed from abs_read_only_fnames
+            self.assertEqual(len(coder.abs_read_only_fnames), 0)
+
+    def test_cmd_read_only_with_tilde_path(self):
+        with GitTemporaryDirectory():
+            io = InputOutput(pretty=False, yes=False)
+            coder = Coder.create(self.GPT35, None, io)
+            commands = Commands(io, coder)
+
+            # Create a test file in the user's home directory
+            home_dir = os.path.expanduser("~")
+            test_file = Path(home_dir) / "test_read_only_file.txt"
+            test_file.write_text("Test content")
+
+            try:
+                # Test the /read-only command with a path in the user's home directory
+                relative_path = os.path.join("~", "test_read_only_file.txt")
+                commands.cmd_read_only(relative_path)
+
+                # Check if the file was added to abs_read_only_fnames
+                self.assertTrue(
+                    any(
+                        os.path.samefile(str(test_file), fname)
+                        for fname in coder.abs_read_only_fnames
+                    )
+                )
+
+                # Test dropping the read-only file
+                commands.cmd_drop(relative_path)
+
+                # Check if the file was removed from abs_read_only_fnames
+                self.assertEqual(len(coder.abs_read_only_fnames), 0)
+
+            finally:
+                # Clean up: remove the test file from the home directory
+                test_file.unlink()
+
     def test_cmd_diff(self):
         with GitTemporaryDirectory() as repo_dir:
             repo = git.Repo(repo_dir)
@@ -975,3 +1063,38 @@ class TestCommands(TestCase):
             del coder
             del commands
             del repo
+
+    def test_cmd_reset(self):
+        with GitTemporaryDirectory() as repo_dir:
+            io = InputOutput(pretty=False, yes=True)
+            coder = Coder.create(self.GPT35, None, io)
+            commands = Commands(io, coder)
+
+            # Add some files to the chat
+            file1 = Path(repo_dir) / "file1.txt"
+            file2 = Path(repo_dir) / "file2.txt"
+            file1.write_text("Content of file 1")
+            file2.write_text("Content of file 2")
+            commands.cmd_add(f"{file1} {file2}")
+
+            # Add some messages to the chat history
+            coder.cur_messages = [{"role": "user", "content": "Test message 1"}]
+            coder.done_messages = [{"role": "assistant", "content": "Test message 2"}]
+
+            # Run the reset command
+            commands.cmd_reset("")
+
+            # Check that all files have been dropped
+            self.assertEqual(len(coder.abs_fnames), 0)
+            self.assertEqual(len(coder.abs_read_only_fnames), 0)
+
+            # Check that the chat history has been cleared
+            self.assertEqual(len(coder.cur_messages), 0)
+            self.assertEqual(len(coder.done_messages), 0)
+
+            # Verify that the files still exist in the repository
+            self.assertTrue(file1.exists())
+            self.assertTrue(file2.exists())
+
+            del coder
+            del commands

@@ -9,6 +9,7 @@ from pathlib import Path
 import git
 
 from aider.dump import dump  # noqa: F401
+from aider.run_cmd import run_cmd
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tiff", ".webp"}
 
@@ -272,23 +273,44 @@ class Spinner:
             print("\r" + " " * (len(self.text) + 3))
 
 
+def find_common_root(abs_fnames):
+    if len(abs_fnames) == 1:
+        return safe_abs_path(os.path.dirname(list(abs_fnames)[0]))
+    elif abs_fnames:
+        return safe_abs_path(os.path.commonpath(list(abs_fnames)))
+    else:
+        return safe_abs_path(os.getcwd())
+
+
+def format_tokens(count):
+    if count < 1000:
+        return f"{count}"
+    elif count < 10000:
+        return f"{count / 1000:.1f}k"
+    else:
+        return f"{round(count / 1000)}k"
+
+
 def check_pip_install_extra(io, module, prompt, pip_install_cmd):
-    try:
-        __import__(module)
-        return True
-    except (ImportError, ModuleNotFoundError):
-        pass
+    if module:
+        try:
+            __import__(module)
+            return True
+        except (ImportError, ModuleNotFoundError):
+            pass
 
     cmd = get_pip_install(pip_install_cmd)
 
-    text = f"{prompt}:\n\n{' '.join(cmd)}\n"
-    io.tool_error(text)
+    if prompt:
+        io.tool_error(prompt)
 
-    if not io.confirm_ask("Run pip install?", default="y"):
+    if not io.confirm_ask("Run pip install?", default="y", subject=" ".join(cmd)):
         return
 
     success, output = run_install(cmd)
     if success:
+        if not module:
+            return
         try:
             __import__(module)
             return True
@@ -300,3 +322,14 @@ def check_pip_install_extra(io, module, prompt, pip_install_cmd):
 
     print()
     print(f"Failed to install {pip_install_cmd[0]}")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        command = " ".join(sys.argv[1:])
+        exit_status, output = run_cmd(command)
+        dump(exit_status)
+        dump(output)
+    else:
+        print("Usage: python -m aider.utils <command>")
+        sys.exit(1)

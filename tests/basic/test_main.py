@@ -11,6 +11,7 @@ import git
 from prompt_toolkit.input import DummyInput
 from prompt_toolkit.output import DummyOutput
 
+from aider.coders import Coder
 from aider.dump import dump  # noqa: F401
 from aider.io import InputOutput
 from aider.main import check_gitignore, main, setup_git
@@ -25,10 +26,14 @@ class TestMain(TestCase):
         self.tempdir_obj = IgnorantTemporaryDirectory()
         self.tempdir = self.tempdir_obj.name
         os.chdir(self.tempdir)
+        # Fake home directory prevents tests from using the real ~/.aider.conf.yml file:
+        self.homedir_obj = IgnorantTemporaryDirectory()
+        os.environ["HOME"] = self.homedir_obj.name
 
     def tearDown(self):
         os.chdir(self.original_cwd)
         self.tempdir_obj.cleanup()
+        self.homedir_obj.cleanup()
         os.environ.clear()
         os.environ.update(self.original_env)
 
@@ -523,7 +528,7 @@ class TestMain(TestCase):
                 MockRepoMap.return_value = mock_repo_map
 
                 main(
-                    ["--sonnet", "--cache", "--exit", "--yes"],
+                    ["--sonnet", "--cache-prompts", "--exit", "--yes"],
                     input=DummyInput(),
                     output=DummyOutput(),
                 )
@@ -548,10 +553,69 @@ class TestMain(TestCase):
     def test_4o_and_cache_options(self):
         with GitTemporaryDirectory():
             coder = main(
-                ["--4o", "--cache", "--exit", "--yes"],
+                ["--4o", "--cache-prompts", "--exit", "--yes"],
                 input=DummyInput(),
                 output=DummyOutput(),
                 return_coder=True,
             )
 
             self.assertFalse(coder.add_cache_headers)
+
+    def test_return_coder(self):
+        with GitTemporaryDirectory():
+            result = main(
+                ["--exit", "--yes"],
+                input=DummyInput(),
+                output=DummyOutput(),
+                return_coder=True,
+            )
+            self.assertIsInstance(result, Coder)
+
+            result = main(
+                ["--exit", "--yes"],
+                input=DummyInput(),
+                output=DummyOutput(),
+                return_coder=False,
+            )
+            self.assertIsNone(result)
+
+    def test_map_mul_option(self):
+        with GitTemporaryDirectory():
+            coder = main(
+                ["--map-mul", "5", "--exit", "--yes"],
+                input=DummyInput(),
+                output=DummyOutput(),
+                return_coder=True,
+            )
+            self.assertIsInstance(coder, Coder)
+            self.assertEqual(coder.repo_map.map_mul_no_files, 5)
+
+    def test_suggest_shell_commands_default(self):
+        with GitTemporaryDirectory():
+            coder = main(
+                ["--exit", "--yes"],
+                input=DummyInput(),
+                output=DummyOutput(),
+                return_coder=True,
+            )
+            self.assertTrue(coder.suggest_shell_commands)
+
+    def test_suggest_shell_commands_disabled(self):
+        with GitTemporaryDirectory():
+            coder = main(
+                ["--no-suggest-shell-commands", "--exit", "--yes"],
+                input=DummyInput(),
+                output=DummyOutput(),
+                return_coder=True,
+            )
+            self.assertFalse(coder.suggest_shell_commands)
+
+    def test_suggest_shell_commands_enabled(self):
+        with GitTemporaryDirectory():
+            coder = main(
+                ["--suggest-shell-commands", "--exit", "--yes"],
+                input=DummyInput(),
+                output=DummyOutput(),
+                return_coder=True,
+            )
+            self.assertTrue(coder.suggest_shell_commands)

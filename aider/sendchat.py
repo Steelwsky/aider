@@ -47,7 +47,13 @@ def lazy_litellm_retry_decorator(func):
 
 
 def send_completion(
-    model_name, messages, functions, stream, temperature=0, extra_headers=None, max_tokens=None
+    model_name,
+    messages,
+    functions,
+    stream,
+    temperature=0,
+    extra_headers=None,
+    max_tokens=None,
 ):
     from aider.llm import litellm
 
@@ -86,14 +92,18 @@ def send_completion(
 
 
 @lazy_litellm_retry_decorator
-def simple_send_with_retries(model_name, messages):
+def simple_send_with_retries(model_name, messages, extra_headers=None):
     try:
-        _hash, response = send_completion(
-            model_name=model_name,
-            messages=messages,
-            functions=None,
-            stream=False,
-        )
+        kwargs = {
+            "model_name": model_name,
+            "messages": messages,
+            "functions": None,
+            "stream": False,
+        }
+        if extra_headers is not None:
+            kwargs["extra_headers"] = extra_headers
+
+        _hash, response = send_completion(**kwargs)
         return response.choices[0].message.content
     except (AttributeError, litellm.exceptions.BadRequestError):
         return

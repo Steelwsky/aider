@@ -22,7 +22,7 @@ def default_env_file(git_root):
 
 def get_parser(default_config_files, git_root):
     parser = configargparse.ArgumentParser(
-        description="aider is GPT powered coding in your terminal",
+        description="aider is AI pair programming in your terminal",
         add_config_file_help=True,
         default_config_files=default_config_files,
         auto_env_var_prefix="AIDER_",
@@ -74,7 +74,7 @@ def get_parser(default_config_files, git_root):
         const=gpt_4_model,
         help=f"Use {gpt_4_model} model for the main chat",
     )
-    gpt_4o_model = "gpt-4o"
+    gpt_4o_model = "gpt-4o-2024-08-06"
     group.add_argument(
         "--4o",
         action="store_const",
@@ -212,6 +212,12 @@ def get_parser(default_config_files, git_root):
         action=argparse.BooleanOptionalAction,
         default=False,
         help="Enable caching of prompts (default: False)",
+    )
+    group.add_argument(
+        "--cache-keepalive-pings",
+        type=int,
+        default=0,
+        help="Number of times to ping at 5min intervals to keep prompt cache warm (default: 0)",
     )
     group.add_argument(
         "--map-multiplier-no-files",
@@ -498,6 +504,19 @@ def get_parser(default_config_files, git_root):
         default=True,
     )
     group.add_argument(
+        "--install-main-branch",
+        action="store_true",
+        help="Install the latest version from the main branch",
+        default=False,
+    )
+    group.add_argument(
+        "--upgrade",
+        "--update",
+        action="store_true",
+        help="Upgrade aider to the latest version from PyPI",
+        default=False,
+    )
+    group.add_argument(
         "--apply",
         metavar="FILE",
         help="Apply the changes from the given file instead of running the chat (debug)",
@@ -572,6 +591,12 @@ def get_parser(default_config_files, git_root):
         action="store_true",
         help="Run aider in your browser",
         default=False,
+    )
+    group.add_argument(
+        "--suggest-shell-commands",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable/disable suggesting shell commands (default: True)",
     )
 
     return parser

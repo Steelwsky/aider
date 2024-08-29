@@ -1,6 +1,73 @@
 
 # Release history
 
+### Aider v0.54.4
+
+- Bugfix to completions for `/model` command.
+- Bugfix: revert home dir special case.
+
+### Aider v0.54.3
+
+- Dependency `watchdog<5` for docker image.
+
+### Aider v0.54.2
+
+- When users launch aider in their home dir, help them find/create a repo in a subdir.
+- Added missing `pexpect` dependency.
+
+### Aider v0.54.0
+
+- Added model settings for `gemini/gemini-1.5-pro-exp-0827` and `gemini/gemini-1.5-flash-exp-0827`.
+- Shell and `/run` commands can now be interactive in environments where a pty is available.
+- Optionally share output of suggested shell commands back to the LLM.
+- New `--[no-]suggest-shell-commands` switch to configure shell commands.
+- Performance improvements for autocomplete in large/mono repos.
+- New `--upgrade` switch to install latest version of aider from pypi.
+- Bugfix to `--show-prompt`.
+- Disabled automatic reply to the LLM on `/undo` for all models.
+- Removed pager from `/web` output.
+- Aider wrote 64% of the code in this release.
+
+### Aider v0.53.0
+
+- [Keep your prompt cache from expiring](https://aider.chat/docs/usage/caching.html#preventing-cache-expiration) with `--cache-keepalive-pings`.
+  - Pings the API every 5min to keep the cache warm.
+- You can now bulk accept/reject a series of add url and run shell confirmations.
+- Improved matching of filenames from S/R blocks with files in chat.
+- Stronger prompting for Sonnet to make edits in code chat mode.
+- Stronger prompting for the LLM to specify full file paths.
+- Improved shell command prompting.
+- Weak model now uses `extra_headers`, to support Anthropic beta features.
+- New `--install-main-branch` to update to the latest dev version of aider.
+- Improved error messages on attempt to add not-git subdir to chat.
+- Show model metadata info on `--verbose`.
+- Improved warnings when LLMs env variables aren't set.
+- Bugfix to windows filenames which contain `\_`.
+- Aider wrote 59% of the code in this release.
+
+### Aider v0.52.1
+
+- Bugfix for NameError when applying edits.
+
+### Aider v0.52.0
+
+- Aider now offers to run shell commands:
+  - Launch a browser to view updated html/css/js.
+  - Install new dependencies.
+  - Run DB migrations. 
+  - Run the program to exercise changes.
+  - Run new test cases.
+- `/read` and `/drop` now expand `~` to the home dir.
+- Show the active chat mode at aider prompt.
+- New `/reset` command to `/drop` files and `/clear` chat history.
+- New `--map-multiplier-no-files` to control repo map size multiplier when no files are in the chat.
+  - Reduced default multiplier to 2.
+- Bugfixes and improvements to auto commit sequencing.
+- Improved formatting of token reports and confirmation dialogs.
+- Default OpenAI model is now `gpt-4o-2024-08-06`.
+- Bumped dependencies to pickup litellm bugfixes.
+- Aider wrote 68% of the code in this release.
+
 ### Aider v0.51.0
 
 - Prompt caching for Anthropic models with `--cache-prompts`.

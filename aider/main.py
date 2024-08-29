@@ -13,11 +13,12 @@ from aider import __version__, models, utils
 from aider.args import get_parser
 from aider.coders import Coder
 from aider.commands import Commands, SwitchCoder
+from aider.format_settings import format_settings, scrub_sensitive_info
 from aider.history import ChatSummary
 from aider.io import InputOutput
 from aider.llm import litellm  # noqa: F401; properly init litellm on launch
 from aider.repo import GitRepo
-from aider.versioncheck import check_version
+from aider.versioncheck import check_version, install_from_main_branch, install_upgrade
 
 from .dump import dump  # noqa: F401
 
@@ -50,15 +51,24 @@ def guessed_wrong_repo(io, git_root, fnames, git_dname):
     return str(check_repo)
 
 
+def make_new_repo(git_root, io):
+    repo = git.Repo.init(git_root)
+    io.tool_output(f"Git repository created in {git_root}")
+    check_gitignore(git_root, io, False)
+    return repo
+
+
 def setup_git(git_root, io):
     repo = None
+
     if git_root:
         repo = git.Repo(git_root)
-    elif io.confirm_ask("No git repo found, create one to track GPT's changes (recommended)?"):
+    elif Path.cwd() == Path.home():
+        io.tool_error("You should probably run aider in a directory, not your home dir.")
+        return
+    elif io.confirm_ask("No git repo found, create one to track aider's changes (recommended)?"):
         git_root = str(Path.cwd().resolve())
-        repo = git.Repo.init(git_root)
-        io.tool_output("Git repository created in the current working directory.")
-        check_gitignore(git_root, io, False)
+        repo = make_new_repo(git_root, io)
 
     if not repo:
         return
@@ -121,34 +131,6 @@ def check_gitignore(git_root, io, ask=True):
     io.write_text(gitignore_file, content)
 
     io.tool_output(f"Added {pat} to .gitignore")
-
-
-def format_settings(parser, args):
-    show = scrub_sensitive_info(args, parser.format_values())
-    # clean up the headings for consistency w/ new lines
-    heading_env = "Environment Variables:"
-    heading_defaults = "Defaults:"
-    if heading_env in show:
-        show = show.replace(heading_env, "\n" + heading_env)
-        show = show.replace(heading_defaults, "\n" + heading_defaults)
-    show += "\n"
-    show += "Option settings:\n"
-    for arg, val in sorted(vars(args).items()):
-        if val:
-            val = scrub_sensitive_info(args, str(val))
-        show += f"  - {arg}: {val}\n"  # noqa: E221
-    return show
-
-
-def scrub_sensitive_info(args, text):
-    # Replace sensitive information with last 4 characters
-    if text and args.openai_api_key:
-        last_4 = args.openai_api_key[-4:]
-        text = text.replace(args.openai_api_key, f"...{last_4}")
-    if text and args.anthropic_api_key:
-        last_4 = args.anthropic_api_key[-4:]
-        text = text.replace(args.anthropic_api_key, f"...{last_4}")
-    return text
 
 
 def check_streamlit_install(io):
@@ -430,6 +412,14 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         update_available = check_version(io, just_check=True, verbose=args.verbose)
         return 0 if not update_available else 1
 
+    if args.install_main_branch:
+        success = install_from_main_branch(io)
+        return 0 if success else 1
+
+    if args.upgrade:
+        success = install_upgrade(io)
+        return 0 if success else 1
+
     if args.check_update:
         check_version(io, verbose=args.verbose)
 
@@ -468,11 +458,16 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
     register_litellm_models(git_root, args.model_metadata_file, io, verbose=args.verbose)
 
     if not args.model:
-        args.model = "gpt-4o"
+        args.model = "gpt-4o-2024-08-06"
         if os.environ.get("ANTHROPIC_API_KEY"):
             args.model = "claude-3-5-sonnet-20240620"
 
     main_model = models.Model(args.model, weak_model=args.weak_model)
+
+    if args.verbose:
+        io.tool_output("Model info:")
+        for key, value in main_model.info.items():
+            io.tool_output(f"  {key}: {value}")
 
     lint_cmds = parse_lint_cmds(args.lint_cmd, io)
     if lint_cmds is None:
@@ -500,7 +495,7 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         except FileNotFoundError:
             pass
 
-    commands = Commands(io, None, verify_ssl=args.verify_ssl)
+    commands = Commands(io, None, verify_ssl=args.verify_ssl, args=args, parser=parser)
 
     summarizer = ChatSummary(
         [main_model.weak_model, main_model],
@@ -538,6 +533,8 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
             map_refresh=args.map_refresh,
             cache_prompts=args.cache_prompts,
             map_mul_no_files=args.map_multiplier_no_files,
+            num_cache_warming_pings=args.cache_keepalive_pings,
+            suggest_shell_commands=args.suggest_shell_commands,
         )
     except ValueError as err:
         io.tool_error(str(err))
@@ -553,7 +550,7 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         coder.cur_messages += [
             dict(role="user", content="Hello!"),
         ]
-        messages = coder.format_messages()
+        messages = coder.format_messages().all_messages()
         utils.show_messages(messages)
         return
 

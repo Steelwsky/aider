@@ -16,6 +16,38 @@ class TestUtils(unittest.TestCase):
     def setUp(self):
         self.GPT35 = Model("gpt-3.5-turbo")
 
+    def test_find_filename(self):
+        fence = ("```", "```")
+        valid_fnames = ["file1.py", "file2.py", "dir/file3.py", "\windows\__init__.py"]
+
+        # Test with filename on a single line
+        lines = ["file1.py", "```"]
+        self.assertEqual(eb.find_filename(lines, fence, valid_fnames), "file1.py")
+
+        # Test with filename in fence
+        lines = ["```python", "file3.py", "```"]
+        self.assertEqual(eb.find_filename(lines, fence, valid_fnames), "dir/file3.py")
+
+        # Test with no valid filename
+        lines = ["```", "invalid_file.py", "```"]
+        self.assertEqual("invalid_file.py", eb.find_filename(lines, fence, valid_fnames))
+
+        # Test with multiple fences
+        lines = ["```python", "file1.py", "```", "```", "file2.py", "```"]
+        self.assertEqual(eb.find_filename(lines, fence, valid_fnames), "file2.py")
+
+        # Test with filename having extra characters
+        lines = ["# file1.py", "```"]
+        self.assertEqual(eb.find_filename(lines, fence, valid_fnames), "file1.py")
+
+        # Test with fuzzy matching
+        lines = ["file1_py", "```"]
+        self.assertEqual(eb.find_filename(lines, fence, valid_fnames), "file1.py")
+
+        # Test with fuzzy matching
+        lines = ["\windows__init__.py", "```"]
+        self.assertEqual(eb.find_filename(lines, fence, valid_fnames), "\windows\__init__.py")
+
     # fuzzy logic disabled v0.11.2-dev
     def __test_replace_most_similar_chunk(self):
         whole = "This is a sample text.\nAnother line of text.\nYet another line.\n"
@@ -134,7 +166,7 @@ oops!
 
         with self.assertRaises(ValueError) as cm:
             list(eb.find_original_update_blocks(edit))
-        self.assertIn("Incomplete", str(cm.exception))
+        self.assertIn("Expected `>>>>>>> REPLACE` or `=======`", str(cm.exception))
 
     def test_find_original_update_blocks_missing_filename(self):
         edit = """

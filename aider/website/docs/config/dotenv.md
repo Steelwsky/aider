@@ -81,7 +81,7 @@ cog.outl("```")
 ## Use gpt-4-0613 model for the main chat
 #AIDER_4=
 
-## Use gpt-4o model for the main chat
+## Use gpt-4o-2024-08-06 model for the main chat
 #AIDER_4O=
 
 ## Use gpt-4o-mini model for the main chat
@@ -143,6 +143,9 @@ cog.outl("```")
 
 ## Enable caching of prompts (default: False)
 #AIDER_CACHE_PROMPTS=false
+
+## Number of times to ping at 5min intervals to keep prompt cache warm (default: 0)
+#AIDER_CACHE_KEEPALIVE_PINGS=false
 
 ## Multiplier for map tokens when no files are specified (default: 2)
 #AIDER_MAP_MULTIPLIER_NO_FILES=true
@@ -285,6 +288,12 @@ cog.outl("```")
 ## Check for new aider versions on launch
 #AIDER_CHECK_UPDATE=true
 
+## Install the latest version from the main branch
+#AIDER_INSTALL_MAIN_BRANCH=false
+
+## Upgrade aider to the latest version from PyPI
+#AIDER_UPGRADE=false
+
 ## Apply the changes from the given file instead of running the chat (debug)
 #AIDER_APPLY=
 
@@ -314,6 +323,9 @@ cog.outl("```")
 
 ## Run aider in your browser
 #AIDER_GUI=false
+
+## Enable/disable suggesting shell commands (default: True)
+#AIDER_SUGGEST_SHELL_COMMANDS=true
 ```
 <!--[[[end]]]-->
 

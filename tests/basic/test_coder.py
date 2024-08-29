@@ -95,29 +95,6 @@ class TestCoder(unittest.TestCase):
             self.assertTrue(coder.allowed_to_edit("added.txt"))
             self.assertTrue(coder.need_commit_before_edits)
 
-    def test_get_last_modified(self):
-        # Mock the IO object
-        mock_io = MagicMock()
-
-        with GitTemporaryDirectory():
-            repo = git.Repo(Path.cwd())
-            fname = Path("new.txt")
-            fname.touch()
-            repo.git.add(str(fname))
-            repo.git.commit("-m", "new")
-
-            # Initialize the Coder object with the mocked IO and mocked repo
-            coder = Coder.create(self.GPT35, None, mock_io)
-
-            mod = coder.get_last_modified()
-
-            fname.write_text("hi")
-            mod_newer = coder.get_last_modified()
-            self.assertLess(mod, mod_newer)
-
-            fname.unlink()
-            self.assertEqual(coder.get_last_modified(), 0)
-
     def test_get_files_content(self):
         tempdir = Path(tempfile.mkdtemp())
 
@@ -215,6 +192,43 @@ class TestCoder(unittest.TestCase):
 
             # Assert that abs_fnames is still empty (file not added)
             self.assertEqual(coder.abs_fnames, set())
+
+    def test_check_for_file_mentions_with_mocked_confirm(self):
+        with GitTemporaryDirectory():
+            io = InputOutput(pretty=False)
+            coder = Coder.create(self.GPT35, None, io)
+
+            # Mock get_file_mentions to return two file names
+            coder.get_file_mentions = MagicMock(return_value=set(["file1.txt", "file2.txt"]))
+
+            # Mock confirm_ask to return False for the first call and True for the second
+            io.confirm_ask = MagicMock(side_effect=[False, True, True])
+
+            # First call to check_for_file_mentions
+            coder.check_for_file_mentions("Please check file1.txt for the info")
+
+            # Assert that confirm_ask was called twice
+            self.assertEqual(io.confirm_ask.call_count, 2)
+
+            # Assert that only file2.txt was added to abs_fnames
+            self.assertEqual(len(coder.abs_fnames), 1)
+            self.assertIn("file2.txt", str(coder.abs_fnames))
+
+            # Reset the mock
+            io.confirm_ask.reset_mock()
+
+            # Second call to check_for_file_mentions
+            coder.check_for_file_mentions("Please check file1.txt and file2.txt again")
+
+            # Assert that confirm_ask was called only once (for file1.txt)
+            self.assertEqual(io.confirm_ask.call_count, 1)
+
+            # Assert that abs_fnames still contains only file2.txt
+            self.assertEqual(len(coder.abs_fnames), 1)
+            self.assertIn("file2.txt", str(coder.abs_fnames))
+
+            # Assert that file1.txt is in ignore_mentions
+            self.assertIn("file1.txt", coder.ignore_mentions)
 
     def test_check_for_subdir_mention(self):
         with GitTemporaryDirectory():
@@ -769,6 +783,68 @@ two
             # Check that the abs_fnames do not contain duplicate or incorrect paths
             self.assertEqual(len(coder1.abs_fnames), 1)
             self.assertEqual(len(coder2.abs_fnames), 1)
+
+    def test_suggest_shell_commands(self):
+        with GitTemporaryDirectory():
+            io = InputOutput(yes=True)
+            coder = Coder.create(self.GPT35, "diff", io=io)
+
+            def mock_send(*args, **kwargs):
+                coder.partial_response_content = """Here's a shell command to run:
+
+```bash
+echo "Hello, World!"
+```
+
+This command will print 'Hello, World!' to the console."""
+                coder.partial_response_function_call = dict()
+                return []
+
+            coder.send = mock_send
+
+            # Mock the handle_shell_commands method to check if it's called
+            coder.handle_shell_commands = MagicMock()
+
+            # Run the coder with a message
+            coder.run(with_message="Suggest a shell command")
+
+            # Check if the shell command was added to the list
+            self.assertEqual(len(coder.shell_commands), 1)
+            self.assertEqual(coder.shell_commands[0].strip(), 'echo "Hello, World!"')
+
+            # Check if handle_shell_commands was called with the correct argument
+            coder.handle_shell_commands.assert_called_once()
+
+    def test_no_suggest_shell_commands(self):
+        with GitTemporaryDirectory():
+            io = InputOutput(yes=True)
+            coder = Coder.create(self.GPT35, "diff", io=io, suggest_shell_commands=False)
+
+            def mock_send(*args, **kwargs):
+                coder.partial_response_content = """Here's a shell command to run:
+
+```bash
+echo "Hello, World!"
+```
+
+This command will print 'Hello, World!' to the console."""
+                coder.partial_response_function_call = dict()
+                return []
+
+            coder.send = mock_send
+
+            # Mock the handle_shell_commands method to check if it's called
+            coder.handle_shell_commands = MagicMock()
+
+            # Run the coder with a message
+            coder.run(with_message="Suggest a shell command")
+
+            # Check if the shell command was added to the list
+            self.assertEqual(len(coder.shell_commands), 1)
+            self.assertEqual(coder.shell_commands[0].strip(), 'echo "Hello, World!"')
+
+            # Check if handle_shell_commands was called with the correct argument
+            coder.handle_shell_commands.assert_not_called()
 
 
 if __name__ == "__main__":
