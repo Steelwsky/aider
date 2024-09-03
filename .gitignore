@@ -12,3 +12,4 @@ _site
 .jekyll-metadata
 aienv/
 .env
+aider/__version__.py

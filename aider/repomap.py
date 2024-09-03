@@ -17,6 +17,7 @@ from pygments.token import Token
 from tqdm import tqdm
 
 from aider.dump import dump
+from aider.special import filter_important_files
 from aider.utils import Spinner
 
 from tree_sitter_language_pack import get_language, get_parser
@@ -156,11 +157,12 @@ class RepoMap:
         return repo_content
 
     def get_rel_fname(self, fname):
-        return os.path.relpath(fname, self.root)
-
-    def split_path(self, path):
-        path = os.path.relpath(path, self.root)
-        return [path + ":"]
+        try:
+            return os.path.relpath(fname, self.root)
+        except ValueError:
+            # Issue #1288: ValueError: path is on mount 'C:', start on mount 'D:'
+            # Just return the full fname.
+            return fname
 
     def load_tags_cache(self):
         path = Path(self.root) / self.TAGS_CACHE_DIR
@@ -202,8 +204,12 @@ class RepoMap:
         if not lang:
             return
 
-        language = get_language(lang)
-        parser = get_parser(lang)
+        try:
+            language = get_language(lang)
+            parser = get_parser(lang)
+        except Exception as err:
+            print(f"Skipping file {fname}: {err}")
+            return
 
         query_scm = get_scm_fname(lang)
         if not query_scm.exists():
@@ -253,8 +259,8 @@ class RepoMap:
 
         try:
             lexer = guess_lexer_for_filename(fname, code)
-        except Exception as ex:  # On Windows, bad ref to time.clock which is deprecated?
-            self.io.tool_error(f"Error lexing {fname}: {ex}")
+        except Exception:  # On Windows, bad ref to time.clock which is deprecated?
+            # self.io.tool_error(f"Error lexing {fname}")
             return
 
         tokens = list(lexer.get_tokens(code))
@@ -497,6 +503,12 @@ class RepoMap:
             mentioned_idents,
             progress=spin.step,
         )
+
+        other_rel_fnames = sorted(set(self.get_rel_fname(fname) for fname in other_fnames))
+        special_fnames = filter_important_files(other_rel_fnames)
+        special_fnames = [(fn,) for fn in special_fnames]
+
+        ranked_tags = special_fnames + ranked_tags
 
         spin.step()
 
