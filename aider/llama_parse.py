@@ -10,4 +10,4 @@ def parse_pdf(pdf_file, api_key):
         language="en",  # Optionally you can define a language, default=en
     )
     documents = parser.load_data(pdf_file)
-    return documents[0].text
+    return "\n\n".join(doc.text for doc in documents)
