@@ -4,12 +4,14 @@ import re
 import sys
 import threading
 from pathlib import Path
+from dotenv import load_dotenv
 
 import git
 from dotenv import load_dotenv
 from prompt_toolkit.enums import EditingMode
 
 from aider import __version__, models, utils
+from aider.llama_parse import parse_pdf
 from aider.args import get_parser
 from aider.coders import Coder
 from aider.commands import Commands, SwitchCoder
@@ -622,6 +624,24 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
             return 1
         except IOError as e:
             io.tool_error(f"Error reading message file: {e}")
+            return 1
+        return
+
+    if args.pdf_file:
+        try:
+            load_dotenv()
+            api_key = os.getenv("LLAMA_API_KEY")
+            if not api_key:
+                io.tool_error("LLAMA_API_KEY not found in .env file")
+                return 1
+            pdf_content = parse_pdf(args.pdf_file, api_key)
+            io.tool_output("PDF parsed successfully. Running coder with parsed content.")
+            coder.run(with_message=pdf_content)
+        except FileNotFoundError:
+            io.tool_error(f"PDF file not found: {args.pdf_file}")
+            return 1
+        except Exception as e:
+            io.tool_error(f"Error parsing PDF file: {e}")
             return 1
         return
 

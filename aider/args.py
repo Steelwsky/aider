@@ -598,6 +598,11 @@ def get_parser(default_config_files, git_root):
         default=True,
         help="Enable/disable suggesting shell commands (default: True)",
     )
+    group.add_argument(
+        "--pdf-file",
+        metavar="PDF_FILE",
+        help="Specify a PDF file to parse using llama_parser",
+    )
 
     return parser
 
