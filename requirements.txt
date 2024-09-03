@@ -220,5 +220,5 @@ yarl==1.9.4
     # via aiohttp
 zipp==3.20.1
     # via importlib-metadata
-llama-parse==0.1.1
+llama-parse==0.5.1
     # via -r requirements/requirements.in

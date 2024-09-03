@@ -636,6 +636,8 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
                 return 1
             pdf_content = parse_pdf(args.pdf_file, api_key)
             io.tool_output("PDF parsed successfully. Running coder with parsed content.")
+            if args.verbose:
+                io.tool_output(f'{pdf_content}')
             coder.run(with_message=pdf_content)
         except FileNotFoundError:
             io.tool_error(f"PDF file not found: {args.pdf_file}")
