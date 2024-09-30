@@ -216,6 +216,9 @@ def get_pip_install(args):
         "-m",
         "pip",
         "install",
+        "--upgrade",
+        "--upgrade-strategy",
+        "only-if-needed",
     ]
     cmd += args
     return cmd
@@ -234,6 +237,8 @@ def run_install(cmd):
             text=True,
             bufsize=1,
             universal_newlines=True,
+            encoding=sys.stdout.encoding,
+            errors="replace",
         )
         spinner = Spinner("Installing...")
 
@@ -330,7 +335,7 @@ def check_pip_install_extra(io, module, prompt, pip_install_cmd, self_update=Fal
     cmd = get_pip_install(pip_install_cmd)
 
     if prompt:
-        io.tool_error(prompt)
+        io.tool_warning(prompt)
 
     if self_update and platform.system() == "Windows":
         io.tool_output("Run this command to update:")
@@ -344,7 +349,7 @@ def check_pip_install_extra(io, module, prompt, pip_install_cmd, self_update=Fal
     success, output = run_install(cmd)
     if success:
         if not module:
-            return
+            return True
         try:
             __import__(module)
             return True

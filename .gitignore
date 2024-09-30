@@ -13,3 +13,4 @@ _site
 aienv/
 .env
 aider/__version__.py
+.venv/

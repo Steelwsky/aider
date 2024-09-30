@@ -1,6 +1,95 @@
 
 # Release history
 
+### Aider v0.58.0
+
+- [Use a pair of Architect/Editor models for improved coding](https://aider.chat/2024/09/26/architect.html)
+  - Use a strong reasoning model like o1-preview as your Architect.
+  - Use a cheaper, faster model like gpt-4o as your Editor.
+- New `--o1-preview` and `--o1-mini` shortcuts.
+- Support for new Gemini 002 models.
+- Better support for Qwen 2.5 models.
+- Many confirmation questions can be skipped for the rest of the session with "(D)on't ask again" response.
+- Autocomplete for `/read-only` supports the entire filesystem.
+- New settings for completion menu colors.
+- New `/copy` command to copy the last LLM response to the clipboard.
+- Renamed `/clipboard` to `/paste`.
+- Will now follow HTTP redirects when scraping urls.
+- New `--voice-format` switch to send voice audio as wav/mp3/webm, by @mbailey.
+- ModelSettings takes `extra_params` dict to specify any extras to pass to `litellm.completion()`.
+- Support for cursor shapes when in vim mode.
+- Numerous bug fixes.
+- Aider wrote 53% of the code in this release.
+
+### Aider v0.57.1
+
+- Fixed dependency conflict between aider-chat[help] and [playwright].
+
+### Aider v0.57.0
+
+- Support for OpenAI o1 models:
+  - o1-preview now works well with diff edit format.
+  - o1-preview with diff now matches SOTA leaderboard result with whole edit format.
+  - `aider --model o1-mini`
+  - `aider --model o1-preview`
+- On Windows, `/run` correctly uses PowerShell or cmd.exe.
+- Support for new 08-2024 Cohere models, by @jalammar.
+- Can now recursively add directories with `/read-only`.
+- User input prompts now fall back to simple `input()` if `--no-pretty` or a Windows console is not available.
+- Improved sanity check of git repo on startup.
+- Improvements to prompt cache chunking strategy.
+- Removed "No changes made to git tracked files".
+- Numerous bug fixes for corner case crashes.
+- Updated all dependency versions.
+- Aider wrote 70% of the code in this release.
+
+### Aider v0.56.0
+
+- Enables prompt caching for Sonnet via OpenRouter by @fry69
+- Enables 8k output tokens for Sonnet via VertexAI and DeepSeek V2.5.
+- New `/report` command to open your browser with a pre-populated GitHub Issue.
+- New `--chat-language` switch to set the spoken language.
+- Now `--[no-]suggest-shell-commands` controls both prompting for and offering to execute shell commands.
+- Check key imports on launch, provide helpful error message if dependencies aren't available.
+- Renamed `--models` to `--list-models` by @fry69.
+- Numerous bug fixes for corner case crashes.
+- Aider wrote 56% of the code in this release.
+
+### Aider v0.55.0
+
+- Only print the pip command when self updating on Windows, without running it.
+- Converted many error messages to warning messages.
+- Added `--tool-warning-color` setting.
+- Blanket catch and handle git errors in any `/command`.
+- Catch and handle glob errors in `/add`, errors writing files.
+- Disabled built in linter for typescript.
+- Catch and handle terminals which don't support pretty output.
+- Catch and handle playwright and pandoc errors.
+- Catch `/voice` transcription exceptions, show the WAV file so the user can recover it.
+- Aider wrote 53% of the code in this release.
+
+### Aider v0.54.12
+
+- Switched to `vX.Y.Z.dev` version naming.
+
+### Aider v0.54.11
+
+- Improved printed pip command output on Windows.
+
+### Aider v0.54.10
+
+- Bugfix to test command in platform info.
+
+### Aider v0.54.9
+
+- Include important devops files in the repomap.
+- Print quoted pip install commands to the user.
+- Adopt setuptools_scm to provide dev versions with git hashes.
+- Share active test and lint commands with the LLM.
+- Catch and handle most errors creating new files, reading existing files.
+- Catch and handle most git errors.
+- Added --verbose debug output for shell commands.
+
 ### Aider v0.54.8
 
 - Startup QOL improvements:
@@ -10,7 +99,6 @@
 - Do not fuzzy match filenames when LLM is creating a new file, by @ozapinq
 - Numerous corner case bug fixes submitted via new crash report -> GitHub Issue feature.
 - Crash reports now include python version, OS, etc.
-- Aider wrote 56% of the code in this release.
 
 ### Aider v0.54.7
 
@@ -642,7 +730,7 @@
 
 - Added `/git` command to run git from inside aider chats.
 - Use Meta-ENTER (Esc+ENTER in some environments) to enter multiline chat messages.
-- Create a `.gitignore` with `.aider*` to prevent users from accidentaly adding aider files to git.
+- Create a `.gitignore` with `.aider*` to prevent users from accidentally adding aider files to git.
 - Check pypi for newer versions and notify user.
 - Updated keyboard interrupt logic so that 2 ^C in 2 seconds always forces aider to exit.
 - Provide GPT with detailed error if it makes a bad edit block, ask for a retry.
