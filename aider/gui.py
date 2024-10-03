@@ -254,10 +254,10 @@ class GUI:
             self.coder.cur_messages = []
             self.info("Cleared chat history. Now the LLM can't see anything before this line.")
 
-    def do_show_metrics(self):
-        st.metric("Cost of last message send & reply", "$0.0019", help="foo")
-        st.metric("Cost to send next message", "$0.0013", help="foo")
-        st.metric("Total cost this session", "$0.22")
+    # def do_show_metrics(self):
+    #     st.metric("Cost of last message send & reply", "$0.0019", help="foo")
+    #     st.metric("Cost to send next message", "$0.0013", help="foo")
+    #     st.metric("Total cost this session", "$0.22")
 
     def do_git(self):
         with st.expander("Git", expanded=False):

@@ -1617,10 +1617,12 @@ class Coder:
             else:
                 return f"{value:.{max(2, 2 - int(math.log10(magnitude)))}f}"
 
-        cost_report = (
-            f"Cost: ${format_cost(self.message_cost)} message,"
-            f" ${format_cost(self.total_cost)} session."
-        )
+        # HIDING COSTS
+        cost_report = ""
+        # (
+        #     f"Cost: ${format_cost(self.message_cost)} message,"
+        #     f" ${format_cost(self.total_cost)} session."
+        # )
 
         if self.add_cache_headers and self.stream:
             warning = " Use --no-stream for accurate caching costs."
