@@ -4,6 +4,7 @@ from imgcat import imgcat
 from matplotlib import rc
 
 from aider.dump import dump  # noqa: 401
+from constants import APP_NAME
 
 
 def get_model_color(model):
@@ -100,7 +101,7 @@ def plot_over_time(yaml_file):
 
     ax.set_xlabel("Model release date", fontsize=18, color="#555")
     ax.set_ylabel(
-        "Aider code editing benchmark,\npercent completed correctly", fontsize=18, color="#555"
+        f"{APP_NAME} code editing benchmark,\npercent completed correctly", fontsize=18, color="#555"
     )
     ax.set_title("LLM code editing skill by model release date", fontsize=20)
     ax.set_ylim(0, 100)  # Adjust y-axis limit to accommodate higher values

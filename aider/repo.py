@@ -7,6 +7,7 @@ import pathspec
 
 from aider import prompts, utils
 from aider.sendchat import simple_send_with_retries
+from constants import APP_NAME
 
 from .dump import dump  # noqa: F401
 
@@ -110,9 +111,9 @@ class GitRepo:
             commit_message = self.get_commit_message(diffs, context)
 
         if aider_edits and self.attribute_commit_message_author:
-            commit_message = "aider: " + commit_message
+            commit_message = f"{APP_NAME}: " + commit_message
         elif self.attribute_commit_message_committer:
-            commit_message = "aider: " + commit_message
+            commit_message = f"{APP_NAME}: " + commit_message
 
         if not commit_message:
             commit_message = "(no commit message provided)"
@@ -135,7 +136,7 @@ class GitRepo:
 
         original_user_name = self.repo.config_reader().get_value("user", "name")
         original_committer_name_env = os.environ.get("GIT_COMMITTER_NAME")
-        committer_name = f"{original_user_name} (aider)"
+        committer_name = f"{original_user_name} ({APP_NAME})"
 
         if self.attribute_committer:
             os.environ["GIT_COMMITTER_NAME"] = committer_name

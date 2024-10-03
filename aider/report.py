@@ -9,6 +9,7 @@ import webbrowser
 from aider import __version__
 from aider.urls import github_issues
 from aider.versioncheck import VERSION_CHECK_FNAME
+from constants import APP_NAME
 
 FENCE = "`" * 3
 
@@ -34,6 +35,7 @@ def get_git_info():
         return "Git information unavailable"
 
 
+# TODO remove usage of this function
 def report_github_issue(issue_text, title=None, confirm=True):
     """
     Compose a URL to open a new GitHub issue with the given text prefilled,
@@ -44,7 +46,7 @@ def report_github_issue(issue_text, title=None, confirm=True):
     :param confirm: Whether to ask for confirmation before opening the browser (default: True)
     :return: None
     """
-    version_info = f"Aider version: {__version__}\n"
+    version_info = f"{APP_NAME} version: {__version__}\n"
     python_version = f"Python version: {sys.version.split()[0]}\n"
     platform_info = f"Platform: {platform.platform()}\n"
     python_info = get_python_info() + "\n"
@@ -60,13 +62,13 @@ def report_github_issue(issue_text, title=None, confirm=True):
     if title is None:
         title = "Bug report"
     params["title"] = title
-    issue_url = f"{github_issues}?{urllib.parse.urlencode(params)}"
+    # issue_url = f"{github_issues}?{urllib.parse.urlencode(params)}"
 
     if confirm:
         print(f"\n# {title}\n")
         print(issue_text.strip())
         print()
-        print("Please consider reporting this bug to help improve aider!")
+        print(f"Please consider reporting this bug to help improve {APP_NAME}!")
         prompt = "Open a GitHub Issue pre-filled with the above error in your browser? (Y/n) "
         confirmation = input(prompt).strip().lower()
 

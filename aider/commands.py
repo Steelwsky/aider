@@ -19,6 +19,7 @@ from aider.repo import ANY_GIT_ERROR
 from aider.run_cmd import run_cmd
 from aider.scrape import Scraper, install_playwright
 from aider.utils import is_image_file
+from constants import APP_NAME
 
 from .dump import dump  # noqa: F401
 
@@ -86,7 +87,7 @@ class Commands:
 
         show_formats = OrderedDict(
             [
-                ("help", "Get help about using aider (usage, config, troubleshoot)."),
+                ("help", f"Get help about using {APP_NAME} (usage, config, troubleshoot)."),
                 ("ask", "Ask questions about your code without making any changes."),
                 ("code", "Ask for changes to your code (using the best edit format)."),
             ]
@@ -438,7 +439,7 @@ class Commands:
         self.io.tool_output(f"{cost_pad}{fmt(limit)} tokens max context window size")
 
     def cmd_undo(self, args):
-        "Undo the last git commit if it was done by aider"
+        f"Undo the last git commit if it was done by {APP_NAME}"
         try:
             self.raw_cmd_undo(args)
         except ANY_GIT_ERROR as err:
@@ -457,7 +458,7 @@ class Commands:
         last_commit_hash = self.coder.repo.get_head_commit_sha(short=True)
         last_commit_message = self.coder.repo.get_head_commit_message("(unknown)").strip()
         if last_commit_hash not in self.coder.aider_commit_hashes:
-            self.io.tool_error("The last commit was not made by aider in this chat session.")
+            self.io.tool_error(f"The last commit was not made by {APP_NAME} in this chat session.")
             self.io.tool_output(
                 "You could try `/git reset --hard HEAD^` but be aware that this is a destructive"
                 " command!"
@@ -654,7 +655,7 @@ class Commands:
         return res
 
     def cmd_add(self, args):
-        "Add files to the chat so aider can edit them or review them in detail"
+        f"Add files to the chat so {APP_NAME} can edit them or review them in detail"
 
         all_matched_files = set()
 
@@ -666,7 +667,7 @@ class Commands:
                 fname = Path(self.coder.root) / word
 
             if self.coder.repo and self.coder.repo.ignored_file(fname):
-                self.io.tool_warning(f"Skipping {fname} due to aiderignore or --subtree-only.")
+                self.io.tool_warning(f"Skipping {fname} due to ignore or --subtree-only.") #aiderignore
                 continue
 
             if fname.exists():
@@ -927,10 +928,10 @@ class Commands:
             else:
                 self.io.tool_output(f"{cmd} No description available.")
         self.io.tool_output()
-        self.io.tool_output("Use `/help <question>` to ask questions about how to use aider.")
+        self.io.tool_output(f"Use `/help <question>` to ask questions about how to use {APP_NAME}.")
 
     def cmd_help(self, args):
-        "Ask questions about aider"
+        f"Ask questions about {APP_NAME}"
 
         if not args.strip():
             self.basic_help()
@@ -955,8 +956,8 @@ class Commands:
             map_mul_no_files=1,
         )
         user_msg = self.help.ask(args)
-        user_msg += """
-# Announcement lines from when this session of aider was launched:
+        user_msg += f"""
+# Announcement lines from when this session of {APP_NAME} was launched:
 
 """
         user_msg += "\n".join(self.coder.get_announcements()) + "\n"
@@ -1236,7 +1237,7 @@ class Commands:
             self.io.tool_error(f"An unexpected error occurred while copying to clipboard: {str(e)}")
 
     def cmd_report(self, args):
-        "Report a problem by opening a GitHub Issue"
+        "Report a problem by writing to developer team"
         from aider.report import report_github_issue
 
         announcements = "\n".join(self.coder.get_announcements())

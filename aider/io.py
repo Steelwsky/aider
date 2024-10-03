@@ -19,6 +19,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.style import Style as RichStyle
 from rich.text import Text
+from constants import APP_NAME
 
 from aider.mdstream import MarkdownStream
 
@@ -231,7 +232,7 @@ class InputOutput:
         self.dry_run = dry_run
 
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self.append_chat_history(f"\n# aider chat started at {current_time}\n\n")
+        self.append_chat_history(f"\n# {APP_NAME} chat started at {current_time}\n\n")
 
         self.prompt_session = None
         if self.pretty:

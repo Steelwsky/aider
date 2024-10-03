@@ -1,6 +1,7 @@
 import argparse
 
 from aider import urls
+from constants import APP_NAME
 
 from .dump import dump  # noqa: F401
 
@@ -18,16 +19,15 @@ class DotEnvFormatter(argparse.HelpFormatter):
     def _format_text(self, text):
         return f"""
 ##########################################################
-# Sample aider .env file.
+# Sample {APP_NAME} .env file.
 # Place at the root of your git repo.
-# Or use `aider --env <fname>` to specify.
+# Or use `{APP_NAME} --env <fname>` to specify.
 ##########################################################
 
 #################
 # LLM parameters:
 #
 # Include xxx_API_KEY parameters and other params needed for your LLMs.
-# See {urls.llms} for details.
 
 ## OpenAI
 #OPENAI_API_KEY=
@@ -37,6 +37,7 @@ class DotEnvFormatter(argparse.HelpFormatter):
 
 ##...
 """
+# See {urls.llms} for details.
 
     def _format_action(self, action):
         if not action.option_strings:
@@ -98,9 +99,8 @@ class YamlHelpFormatter(argparse.HelpFormatter):
 
 # Note: You can only put OpenAI and Anthropic API keys in the yaml
 # config file. Keys for all APIs can be stored in a .env file
-# https://aider.chat/docs/config/dotenv.html
-
 """
+# https://aider.chat/docs/config/dotenv.html
 
     def _format_action(self, action):
         if not action.option_strings:

@@ -7,8 +7,9 @@ import pypandoc
 
 from aider import __version__, urls, utils
 from aider.dump import dump  # noqa: F401
+from constants import APP_NAME
 
-aider_user_agent = f"Aider/{__version__} +{urls.website}"
+aider_user_agent = f"{APP_NAME}/{__version__} +{urls.website}"
 
 # Playwright is nice because it has a simple way to install dependencies on most
 # platforms.
@@ -45,8 +46,8 @@ def install_playwright(io):
     text = f"""For the best web scraping, install Playwright:
 
 {cmds}
-See {urls.enable_playwright} for more info.
 """
+# See {urls.enable_playwright} for more info.
 
     io.tool_output(text)
     if not io.confirm_ask("Install playwright?", default="y"):

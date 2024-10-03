@@ -956,7 +956,9 @@ def sanity_check_model(io, model):
                 io.tool_output(f"- {match}")
 
     if show:
-        io.tool_output(f"For more info, see: {urls.model_warnings}")
+        # TODO remove
+        # io.tool_output(f"For more info, see: {urls.model_warnings}")
+        io.tool_output(f"For more info, reach out dev team")
 
     return show
 

@@ -8,6 +8,7 @@ import packaging.version
 import aider
 from aider import utils
 from aider.dump import dump  # noqa: F401
+from constants import APP_NAME
 
 VERSION_CHECK_FNAME = Path.home() / ".aider" / "caches" / "versioncheck"
 
@@ -20,7 +21,7 @@ def install_from_main_branch(io):
     return utils.check_pip_install_extra(
         io,
         None,
-        "Install the development version of aider from the main branch?",
+        f"Install the development version of aider from the main branch?",
         ["git+https://github.com/paul-gauthier/aider.git"],
         self_update=True,
     )

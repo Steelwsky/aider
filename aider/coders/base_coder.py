@@ -29,6 +29,7 @@ from aider.repomap import RepoMap
 from aider.run_cmd import run_cmd
 from aider.sendchat import retry_exceptions, send_completion
 from aider.utils import format_content, format_messages, format_tokens, is_image_file
+from constants import APP_NAME
 
 from ..dump import dump  # noqa: F401
 from .chat_chunks import ChatChunks
@@ -162,8 +163,8 @@ class Coder:
 
     def get_announcements(self):
         lines = []
-        lines.append(f"Aider v{__version__}")
-        lines.append(f"***** Forked *****")
+        lines.append(f"{APP_NAME} v{__version__}")
+        lines.append(f"***** ***** *****")
 
         # Model
         main_model = self.main_model
@@ -200,9 +201,9 @@ class Coder:
             lines.append(f"Git repo: {rel_repo_dir} with {num_files:,} files")
             if num_files > 1000:
                 lines.append(
-                    "Warning: For large repos, consider using --subtree-only and .aiderignore"
+                    "Warning: For large repos, consider using --subtree-only"
                 )
-                lines.append(f"See: {urls.large_repos}")
+                # lines.append(f"See: {urls.large_repos}")
         else:
             lines.append("Git repo: none")
 
@@ -349,7 +350,7 @@ class Coder:
         for fname in fnames:
             fname = Path(fname)
             if self.repo and self.repo.ignored_file(fname):
-                self.io.tool_warning(f"Skipping {fname} that matches aiderignore spec.")
+                # self.io.tool_warning(f"Skipping {fname} that matches aiderignore spec.")
                 continue
 
             if not fname.exists():
@@ -1306,7 +1307,7 @@ class Coder:
             res.append("- Break your code into smaller source files.")
 
         res.append("")
-        res.append(f"For more info: {urls.token_limits}")
+        # res.append(f"For more info: {urls.token_limits}")
 
         res = "".join([line + "\n" for line in res])
         self.io.tool_error(res)
@@ -1776,7 +1777,7 @@ class Coder:
             return
 
         self.io.tool_warning("Warning: it's best to only add files that need changes to the chat.")
-        self.io.tool_warning(urls.edit_errors)
+        # self.io.tool_warning(urls.edit_errors)
         self.warning_given = True
 
     def prepare_to_edit(self, edits):
@@ -1819,7 +1820,7 @@ class Coder:
             err = err.args[0]
 
             self.io.tool_error("The LLM did not conform to the edit format.")
-            self.io.tool_output(urls.edit_errors)
+            # self.io.tool_output(urls.edit_errors)
             self.io.tool_output()
             self.io.tool_output(str(err))
 
@@ -1917,7 +1918,7 @@ class Coder:
         if not self.commit_before_message:
             return
         if self.commit_before_message[-1] != self.repo.get_head_commit_sha():
-            self.io.tool_output("You can use /undo to undo and discard each aider commit.")
+            self.io.tool_output(f"You can use /undo to undo and discard each {APP_NAME} commit.")
 
     def dirty_commit(self):
         if not self.need_commit_before_edits:

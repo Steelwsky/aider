@@ -7,6 +7,7 @@ import sys
 import configargparse
 
 from aider import __version__
+from constants import APP_NAME
 from aider.args_formatter import (
     DotEnvFormatter,
     MarkdownHelpFormatter,
@@ -22,7 +23,7 @@ def default_env_file(git_root):
 
 def get_parser(default_config_files, git_root):
     parser = configargparse.ArgumentParser(
-        description="aider is AI pair programming in your terminal",
+        description=f"{APP_NAME} is AI pair programming in your terminal",
         add_config_file_help=True,
         default_config_files=default_config_files,
         auto_env_var_prefix="AIDER_",
@@ -176,7 +177,7 @@ def get_parser(default_config_files, git_root):
         "--model-settings-file",
         metavar="MODEL_SETTINGS_FILE",
         default=".aider.model.settings.yml",
-        help="Specify a file with aider model settings for unknown models",
+        help=f"Specify a file with {APP_NAME} model settings for unknown models",
     )
     group.add_argument(
         "--model-metadata-file",
@@ -318,7 +319,7 @@ def get_parser(default_config_files, git_root):
         "--llm-history-file",
         metavar="LLM_HISTORY_FILE",
         default=None,
-        help="Log the conversation with the LLM to this file (for example, .aider.llm.history)",
+        help="Log the conversation with the LLM to this file",
     )
 
     ##########
@@ -428,21 +429,21 @@ def get_parser(default_config_files, git_root):
         default=True,
         help="Enable/disable looking for a git repo (default: True)",
     )
-    group.add_argument(
-        "--gitignore",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Enable/disable adding .aider* to .gitignore (default: True)",
-    )
-    default_aiderignore_file = (
-        os.path.join(git_root, ".aiderignore") if git_root else ".aiderignore"
-    )
-    group.add_argument(
-        "--aiderignore",
-        metavar="AIDERIGNORE",
-        default=default_aiderignore_file,
-        help="Specify the aider ignore file (default: .aiderignore in git root)",
-    )
+    # group.add_argument(
+    #     "--gitignore",
+    #     action=argparse.BooleanOptionalAction,
+    #     default=True,
+    #     help="Enable/disable adding .aider* to .gitignore (default: True)",
+    # )
+    # default_aiderignore_file = (
+    #     os.path.join(git_root, ".aiderignore") if git_root else ".aiderignore"
+    # )
+    # group.add_argument(
+    #     "--aiderignore",
+    #     metavar="AIDERIGNORE",
+    #     default=default_aiderignore_file,
+    #     help="Specify the {APP_NAME} ignore file (default: .aiderignore in git root)",
+    # )
     group.add_argument(
         "--subtree-only",
         action="store_true",
@@ -465,25 +466,25 @@ def get_parser(default_config_files, git_root):
         "--attribute-author",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Attribute aider code changes in the git author name (default: True)",
+        help=f"Attribute {APP_NAME} code changes in the git author name (default: True)",
     )
     group.add_argument(
         "--attribute-committer",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Attribute aider commits in the git committer name (default: True)",
+        help=f"Attribute {APP_NAME} commits in the git committer name (default: True)",
     )
     group.add_argument(
         "--attribute-commit-message-author",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Prefix commit messages with 'aider: ' if aider authored the changes (default: False)",
+        help=f"Prefix commit messages with '{APP_NAME}: ' if {APP_NAME} authored the changes (default: False)",
     )
     group.add_argument(
         "--attribute-commit-message-committer",
         action=argparse.BooleanOptionalAction,
         default=False,
-        help="Prefix all commit messages with 'aider: ' (default: False)",
+        help=f"Prefix all commit messages with '{APP_NAME}: ' (default: False)",
     )
     group.add_argument(
         "--commit",
@@ -574,31 +575,31 @@ def get_parser(default_config_files, git_root):
         version=f"%(prog)s {__version__}",
         help="Show the version number and exit",
     )
-    group.add_argument(
-        "--just-check-update",
-        action="store_true",
-        help="Check for updates and return status in the exit code",
-        default=False,
-    )
-    group.add_argument(
-        "--check-update",
-        action=argparse.BooleanOptionalAction,
-        help="Check for new aider versions on launch",
-        default=True,
-    )
-    group.add_argument(
-        "--install-main-branch",
-        action="store_true",
-        help="Install the latest version from the main branch",
-        default=False,
-    )
-    group.add_argument(
-        "--upgrade",
-        "--update",
-        action="store_true",
-        help="Upgrade aider to the latest version from PyPI",
-        default=False,
-    )
+    # group.add_argument(
+    #     "--just-check-update",
+    #     action="store_true",
+    #     help="Check for updates and return status in the exit code",
+    #     default=False,
+    # )
+    # group.add_argument(
+    #     "--check-update",
+    #     action=argparse.BooleanOptionalAction,
+    #     help=f"Check for new {APP_NAME} versions on launch",
+    #     default=True,
+    # )
+    # group.add_argument(
+    #     "--install-main-branch",
+    #     action="store_true",
+    #     help="Install the latest version from the main branch",
+    #     default=False,
+    # )
+    # group.add_argument(
+    #     "--upgrade",
+    #     "--update",
+    #     action="store_true",
+    #     help=f"Upgrade {APP_NAME} to the latest version from PyPI",
+    #     default=False,
+    # )
     group.add_argument(
         "--apply",
         metavar="FILE",
@@ -658,21 +659,21 @@ def get_parser(default_config_files, git_root):
         default="utf-8",
         help="Specify the encoding for input and output (default: utf-8)",
     )
-    group.add_argument(
-        "-c",
-        "--config",
-        is_config_file=True,
-        metavar="CONFIG_FILE",
-        help=(
-            "Specify the config file (default: search for .aider.conf.yml in git root, cwd"
-            " or home directory)"
-        ),
-    )
+    # group.add_argument(
+    #     "-c",
+    #     "--config",
+    #     is_config_file=True,
+    #     metavar="CONFIG_FILE",
+    #     help=(
+    #         "Specify the config file (default: search for .aider.conf.yml in git root, cwd"
+    #         " or home directory)"
+    #     ),
+    # )
     group.add_argument(
         "--gui",
         "--browser",
         action="store_true",
-        help="Run aider in your browser",
+        help=f"Run {APP_NAME} in your browser",
         default=False,
     )
     group.add_argument(
