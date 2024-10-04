@@ -7,7 +7,7 @@ import pypandoc
 
 from aider import __version__, urls, utils
 from aider.dump import dump  # noqa: F401
-from constants import APP_NAME
+from aider.constants import APP_NAME
 
 aider_user_agent = f"{APP_NAME}/{__version__} +{urls.website}"
 

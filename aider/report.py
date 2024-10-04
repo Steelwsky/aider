@@ -7,9 +7,9 @@ import urllib.parse
 import webbrowser
 
 from aider import __version__
-from aider.urls import github_issues
+# from aider.urls import github_issues
 from aider.versioncheck import VERSION_CHECK_FNAME
-from constants import APP_NAME
+from aider.constants import APP_NAME
 
 FENCE = "`" * 3
 
@@ -37,59 +37,59 @@ def get_git_info():
 
 # TODO remove usage of this function
 def report_github_issue(issue_text, title=None, confirm=True):
-    """
-    Compose a URL to open a new GitHub issue with the given text prefilled,
-    and attempt to launch it in the default web browser.
+    # """
+    # Compose a URL to open a new GitHub issue with the given text prefilled,
+    # and attempt to launch it in the default web browser.
 
-    :param issue_text: The text of the issue to file
-    :param title: The title of the issue (optional)
-    :param confirm: Whether to ask for confirmation before opening the browser (default: True)
-    :return: None
-    """
-    version_info = f"{APP_NAME} version: {__version__}\n"
-    python_version = f"Python version: {sys.version.split()[0]}\n"
-    platform_info = f"Platform: {platform.platform()}\n"
-    python_info = get_python_info() + "\n"
-    os_info = get_os_info() + "\n"
-    git_info = get_git_info() + "\n"
+    # :param issue_text: The text of the issue to file
+    # :param title: The title of the issue (optional)
+    # :param confirm: Whether to ask for confirmation before opening the browser (default: True)
+    # :return: None
+    # """
+    # version_info = f"{APP_NAME} version: {__version__}\n"
+    # python_version = f"Python version: {sys.version.split()[0]}\n"
+    # platform_info = f"Platform: {platform.platform()}\n"
+    # python_info = get_python_info() + "\n"
+    # os_info = get_os_info() + "\n"
+    # git_info = get_git_info() + "\n"
 
-    system_info = (
-        version_info + python_version + platform_info + python_info + os_info + git_info + "\n"
-    )
+    # system_info = (
+    #     version_info + python_version + platform_info + python_info + os_info + git_info + "\n"
+    # )
 
-    issue_text = system_info + issue_text
-    params = {"body": issue_text}
-    if title is None:
-        title = "Bug report"
-    params["title"] = title
-    # issue_url = f"{github_issues}?{urllib.parse.urlencode(params)}"
+    # issue_text = system_info + issue_text
+    # params = {"body": issue_text}
+    # if title is None:
+    #     title = "Bug report"
+    # params["title"] = title
+    # # issue_url = f"{github_issues}?{urllib.parse.urlencode(params)}"
 
-    if confirm:
-        print(f"\n# {title}\n")
-        print(issue_text.strip())
-        print()
-        print(f"Please consider reporting this bug to help improve {APP_NAME}!")
-        prompt = "Open a GitHub Issue pre-filled with the above error in your browser? (Y/n) "
-        confirmation = input(prompt).strip().lower()
+    # if confirm:
+    #     print(f"\n# {title}\n")
+    #     print(issue_text.strip())
+    #     print()
+    #     print(f"Please consider reporting this bug to help improve {APP_NAME}!")
+    #     prompt = "Open a GitHub Issue pre-filled with the above error in your browser? (Y/n) "
+    #     confirmation = input(prompt).strip().lower()
 
-        yes = not confirmation or confirmation.startswith("y")
-        if not yes:
-            return
+    #     yes = not confirmation or confirmation.startswith("y")
+    #     if not yes:
+    #         return
 
-    print("Attempting to open the issue URL in your default web browser...")
-    try:
-        if webbrowser.open(issue_url):
-            print("Browser window should be opened.")
-    except Exception:
-        pass
+    # print("Attempting to open the issue URL in your default web browser...")
+    # try:
+    #     if webbrowser.open(issue_url):
+    #         print("Browser window should be opened.")
+    # except Exception:
+    #     pass
 
-    if confirm:
-        print()
-        print()
-        print("You can also use this URL to file the GitHub Issue:")
-        print()
-        print(issue_url)
-        print()
+    # if confirm:
+    #     print()
+    #     print()
+    #     print("You can also use this URL to file the GitHub Issue:")
+    #     print()
+    #     # print(issue_url)
+    #     print()
         print()
 
 

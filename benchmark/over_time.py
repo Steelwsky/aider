@@ -4,7 +4,7 @@ from imgcat import imgcat
 from matplotlib import rc
 
 from aider.dump import dump  # noqa: 401
-from constants import APP_NAME
+from aider.constants import APP_NAME
 
 
 def get_model_color(model):

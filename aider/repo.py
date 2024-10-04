@@ -7,7 +7,7 @@ import pathspec
 
 from aider import prompts, utils
 from aider.sendchat import simple_send_with_retries
-from constants import APP_NAME
+from aider.constants import APP_NAME
 
 from .dump import dump  # noqa: F401
 

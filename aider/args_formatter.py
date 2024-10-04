@@ -1,7 +1,7 @@
 import argparse
 
 from aider import urls
-from constants import APP_NAME
+from aider.constants import APP_NAME
 
 from .dump import dump  # noqa: F401
 

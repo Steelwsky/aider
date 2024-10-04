@@ -19,7 +19,7 @@ from aider.repo import ANY_GIT_ERROR
 from aider.run_cmd import run_cmd
 from aider.scrape import Scraper, install_playwright
 from aider.utils import is_image_file
-from constants import APP_NAME
+from aider.constants import APP_NAME
 
 from .dump import dump  # noqa: F401
 
@@ -667,7 +667,8 @@ class Commands:
                 fname = Path(self.coder.root) / word
 
             if self.coder.repo and self.coder.repo.ignored_file(fname):
-                self.io.tool_warning(f"Skipping {fname} due to ignore or --subtree-only.") #aiderignore
+                self.io.tool_warning(
+                    f"Skipping {fname} due to ignore or --subtree-only.")  # aiderignore
                 continue
 
             if fname.exists():

@@ -12,7 +12,7 @@ from aider.dump import dump  # noqa: F401
 from aider.io import InputOutput
 from aider.main import main as cli_main
 from aider.scrape import Scraper
-from constants import APP_NAME
+from aider.constants import APP_NAME
 
 
 class CaptureIO(InputOutput):

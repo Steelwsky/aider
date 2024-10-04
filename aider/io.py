@@ -19,7 +19,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.style import Style as RichStyle
 from rich.text import Text
-from constants import APP_NAME
+from aider.constants import APP_NAME
 
 from aider.mdstream import MarkdownStream
 

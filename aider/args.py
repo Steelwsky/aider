@@ -7,7 +7,7 @@ import sys
 import configargparse
 
 from aider import __version__
-from constants import APP_NAME
+from aider.constants import APP_NAME
 from aider.args_formatter import (
     DotEnvFormatter,
     MarkdownHelpFormatter,
@@ -429,21 +429,21 @@ def get_parser(default_config_files, git_root):
         default=True,
         help="Enable/disable looking for a git repo (default: True)",
     )
-    # group.add_argument(
-    #     "--gitignore",
-    #     action=argparse.BooleanOptionalAction,
-    #     default=True,
-    #     help="Enable/disable adding .aider* to .gitignore (default: True)",
-    # )
-    # default_aiderignore_file = (
-    #     os.path.join(git_root, ".aiderignore") if git_root else ".aiderignore"
-    # )
-    # group.add_argument(
-    #     "--aiderignore",
-    #     metavar="AIDERIGNORE",
-    #     default=default_aiderignore_file,
-    #     help="Specify the {APP_NAME} ignore file (default: .aiderignore in git root)",
-    # )
+    group.add_argument(
+        "--gitignore",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable/disable adding internal files to .gitignore (default: True)",
+    )
+    default_aiderignore_file = (
+        os.path.join(git_root, ".aiderignore") if git_root else ".aiderignore"
+    )
+    group.add_argument(
+        "--ftgdtdgg",
+        metavar="AIDERIGNORE",
+        default=default_aiderignore_file,
+        help="Specify the {APP_NAME} ignore file",
+    )
     group.add_argument(
         "--subtree-only",
         action="store_true",

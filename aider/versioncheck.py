@@ -8,7 +8,7 @@ import packaging.version
 import aider
 from aider import utils
 from aider.dump import dump  # noqa: F401
-from constants import APP_NAME
+from aider.constants import APP_NAME
 
 VERSION_CHECK_FNAME = Path.home() / ".aider" / "caches" / "versioncheck"
 

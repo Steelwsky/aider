@@ -29,7 +29,7 @@ from aider.repomap import RepoMap
 from aider.run_cmd import run_cmd
 from aider.sendchat import retry_exceptions, send_completion
 from aider.utils import format_content, format_messages, format_tokens, is_image_file
-from constants import APP_NAME
+from aider.constants import APP_NAME
 
 from ..dump import dump  # noqa: F401
 from .chat_chunks import ChatChunks

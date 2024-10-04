@@ -1,7 +1,7 @@
 import importlib
 import os
 import warnings
-from constants import APP_NAME
+from aider.constants import APP_NAME
 
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic")
 

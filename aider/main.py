@@ -24,7 +24,7 @@ from aider.llm import litellm  # noqa: F401; properly init litellm on launch
 from aider.repo import ANY_GIT_ERROR, GitRepo
 from aider.report import report_uncaught_exceptions
 from aider.versioncheck import check_version, install_from_main_branch, install_upgrade
-from constants import APP_NAME
+from aider.constants import APP_NAME
 
 from .dump import dump  # noqa: F401
 
@@ -486,20 +486,20 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         if right_repo_root:
             return main(argv, input, output, right_repo_root, return_coder=return_coder)
 
-    if args.just_check_update:
-        update_available = check_version(io, just_check=True, verbose=args.verbose)
-        return 0 if not update_available else 1
+    # if args.just_check_update:
+    #     update_available = check_version(io, just_check=True, verbose=args.verbose)
+    #     return 0 if not update_available else 1
 
-    if args.install_main_branch:
-        success = install_from_main_branch(io)
-        return 0 if success else 1
+    # if args.install_main_branch:
+    #     success = install_from_main_branch(io)
+    #     return 0 if success else 1
 
-    if args.upgrade:
-        success = install_upgrade(io)
-        return 0 if success else 1
+    # if args.upgrade:
+    #     success = install_upgrade(io)
+    #     return 0 if success else 1
 
-    if args.check_update:
-        check_version(io, verbose=args.verbose)
+    # if args.check_update:
+    #     check_version(io, verbose=args.verbose)
 
     if args.list_models:
         models.print_matching_models(io, args.list_models)
@@ -507,8 +507,8 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
 
     if args.git:
         git_root = setup_git(git_root, io)
-        if args.gitignore:
-            check_gitignore(git_root, io)
+        # if args.gitignore:
+        #     check_gitignore(git_root, io)
 
     if args.verbose:
         show = format_settings(parser, args)
@@ -575,7 +575,7 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
                 io,
                 fnames,
                 git_dname,
-                args.aiderignore,
+                None,
                 models=main_model.commit_message_models(),
                 attribute_author=args.attribute_author,
                 attribute_committer=args.attribute_committer,
@@ -796,7 +796,8 @@ def check_and_load_imports(io, verbose=False):
                 load_slow_imports(swallow=False)
             except Exception as err:
                 io.tool_error(str(err))
-                io.tool_output(f"Error loading required imports. Did you install {APP_NAME} properly?")
+                io.tool_output(
+                    f"Error loading required imports. Did you install {APP_NAME} properly?")
                 # io.tool_output("https://aider.chat/docs/install/install.html")
                 sys.exit(1)
 
