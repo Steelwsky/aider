@@ -11,6 +11,7 @@ import importlib_resources
 from aider import __version__, utils
 from aider.dump import dump  # noqa: F401
 from aider.help_pats import exclude_website_pats
+from aider.constants import APP_NAME
 
 warnings.simplefilter("ignore", category=FutureWarning)
 
@@ -69,7 +70,7 @@ def get_index():
     )
     from llama_index.core.node_parser import MarkdownNodeParser
 
-    dname = Path.home() / ".aider" / "caches" / ("help." + __version__)
+    dname = Path.home() / f".{APP_NAME.lower()}" / "caches" / ("help." + __version__)
 
     index = None
     try:

@@ -16,6 +16,7 @@ from PIL import Image
 from aider import urls
 from aider.dump import dump  # noqa: F401
 from aider.llm import litellm
+from aider.constants import APP_NAME
 
 DEFAULT_MODEL_NAME = "gpt-4o"
 ANTHROPIC_BETA_HEADER = "prompt-caching-2024-07-31"
@@ -582,7 +583,7 @@ def get_model_flexible(model, content):
 
 def get_model_info(model):
     if not litellm._lazy_module:
-        cache_dir = Path.home() / ".aider" / "caches"
+        cache_dir = Path.home() / f".{APP_NAME.lower()}" / "caches"
         cache_file = cache_dir / "model_prices_and_context_window.json"
 
         try:

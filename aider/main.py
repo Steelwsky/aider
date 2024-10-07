@@ -117,12 +117,12 @@ def check_gitignore(git_root, io, ask=True):
 
     try:
         repo = git.Repo(git_root)
-        if repo.ignored(".aider"):
+        if repo.ignored(f".{APP_NAME.lower()}"):
             return
     except ANY_GIT_ERROR:
         pass
 
-    pat = ".aider*"
+    pat = f".{APP_NAME.lower()}*"
 
     gitignore_file = Path(git_root) / ".gitignore"
     if gitignore_file.exists():
@@ -245,7 +245,7 @@ def generate_search_path_list(default_fname, git_root, command_line_file):
 
 def register_models(git_root, model_settings_fname, io, verbose=False):
     model_settings_files = generate_search_path_list(
-        ".aider.model.settings.yml", git_root, model_settings_fname
+        f".{APP_NAME.lower()}.model.settings.yml", git_root, model_settings_fname
     )
 
     try:
@@ -290,7 +290,7 @@ def load_dotenv_files(git_root, dotenv_fname, encoding="utf-8"):
 
 def register_litellm_models(git_root, model_metadata_fname, io, verbose=False):
     model_metatdata_files = generate_search_path_list(
-        ".aider.model.metadata.json", git_root, model_metadata_fname
+        f".{APP_NAME.lower()}.model.metadata.json", git_root, model_metadata_fname
     )
 
     try:
@@ -348,7 +348,7 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
     else:
         git_root = get_git_root()
 
-    conf_fname = Path(".aider.conf.yml")
+    conf_fname = Path(f".{APP_NAME.lower()}.conf.yml")
 
     default_config_files = []
     try:
@@ -767,7 +767,7 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
 
 
 def check_and_load_imports(io, verbose=False):
-    installs_file = Path.home() / ".aider" / "installs.json"
+    installs_file = Path.home() / f".{APP_NAME.lower()}" / "installs.json"
     key = (__version__, sys.executable)
 
     if verbose:

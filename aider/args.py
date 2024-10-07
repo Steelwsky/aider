@@ -176,13 +176,13 @@ def get_parser(default_config_files, git_root):
     group.add_argument(
         "--model-settings-file",
         metavar="MODEL_SETTINGS_FILE",
-        default=".aider.model.settings.yml",
+        default=f".{APP_NAME.lower()}.model.settings.yml",
         help=f"Specify a file with {APP_NAME} model settings for unknown models",
     )
     group.add_argument(
         "--model-metadata-file",
         metavar="MODEL_METADATA_FILE",
-        default=".aider.model.metadata.json",
+        default=f".{APP_NAME.lower()}.model.metadata.json",
         help="Specify a file with context window and costs for unknown models",
     )
     group.add_argument(
@@ -292,10 +292,10 @@ def get_parser(default_config_files, git_root):
     ##########
     group = parser.add_argument_group("History Files")
     default_input_history_file = (
-        os.path.join(git_root, ".aider.input.history") if git_root else ".aider.input.history"
+        os.path.join(git_root, f".{APP_NAME.lower()}.input.history") if git_root else f".{APP_NAME}.input.history"
     )
     default_chat_history_file = (
-        os.path.join(git_root, ".aider.chat.history.md") if git_root else ".aider.chat.history.md"
+        os.path.join(git_root, f".{APP_NAME.lower()}.chat.history.md") if git_root else f".{APP_NAME}.chat.history.md"
     )
     group.add_argument(
         "--input-history-file",

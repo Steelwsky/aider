@@ -5,11 +5,12 @@ import backoff
 
 from aider.dump import dump  # noqa: F401
 from aider.llm import litellm
+from aider.constants import APP_NAME
 
 # from diskcache import Cache
 
 
-CACHE_PATH = "~/.aider.send.cache.v1"
+CACHE_PATH = f"~/.{APP_NAME.lower()}.send.cache.v1"
 CACHE = None
 # CACHE = Cache(CACHE_PATH)
 

@@ -19,6 +19,7 @@ from tqdm import tqdm
 from aider.dump import dump
 from aider.special import filter_important_files
 from aider.utils import Spinner
+from aider.constants import APP_NAME
 
 from tree_sitter_language_pack import get_language, get_parser
 
@@ -33,7 +34,7 @@ SQLITE_ERRORS = (sqlite3.OperationalError, sqlite3.DatabaseError)
 
 class RepoMap:
     CACHE_VERSION = 3
-    TAGS_CACHE_DIR = f".aider.tags.cache.v{CACHE_VERSION}"
+    TAGS_CACHE_DIR = f".{APP_NAME.lower()}.tags.cache.v{CACHE_VERSION}"
 
     warned_files = set()
 
