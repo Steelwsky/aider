@@ -528,8 +528,6 @@ def gui_main():
         page_title=f"{APP_NAME}",
         # page_icon=urls.favicon,
         menu_items={
-            # "Get Help": urls.website,
-            "Report a bug": "m.kozar@bpcbt.com",
             "About": f"# {APP_NAME}\n AI pair programming in your browser.",
         },
     )

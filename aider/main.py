@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from prompt_toolkit.enums import EditingMode
 
 from aider import __version__, models, utils
-from aider.llama_parse import parse_pdf
+from aider.llama_parse_pdf import parse_pdf
 from aider.args import get_parser
 from aider.coders import Coder
 from aider.commands import Commands, SwitchCoder
@@ -26,7 +26,7 @@ from aider.report import report_uncaught_exceptions
 from aider.versioncheck import check_version, install_from_main_branch, install_upgrade
 from aider.constants import APP_NAME
 
-from .dump import dump  # noqa: F401
+# from .dump import dump  # noqa: F401
 
 
 def get_git_root():
@@ -343,6 +343,17 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
     if argv is None:
         argv = sys.argv[1:]
 
+    # print('**********')
+    argv = [
+        '--model', 'openai/mistralai/Codestral-22B-v0.1',
+        '--map-tokens', '1024',
+        '--openai-api-key', 'V1JGXME30TMGSDEDP18DLC5FDNRWV8PYVZFW3REB',
+        '--openai-api-base', 'https://api.runpod.ai/v2/vllm-35zt5m7ysbzxix/openai/v1',
+        '--browser',
+    ]
+    # print(argv)
+    # print('**********')
+
     if force_git_root:
         git_root = force_git_root
     else:
@@ -444,8 +455,8 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         io.tool_warning("Terminal does not support pretty output (UnicodeDecodeError)")
 
     if args.gui and not return_coder:
-        if not check_streamlit_install(io):
-            return
+        # if not check_streamlit_install(io):
+        #     return
         launch_gui(argv)
         return
 

@@ -61,7 +61,9 @@ gitdb==4.0.11
 gitpython==3.1.43
     # via -r requirements/requirements.in
 # grep-ast==0.3.3
-grep-ast @ git+https://github.com/gohanlon/grep-ast.git@adopt-tree-sitter-language-pack#egg=grep-ast
+# grep-ast @ git+https://github.com/gohanlon/grep-ast.git@adopt-tree-sitter-language-pack#egg=grep-ast
+# it is for build
+grep-ast
     # via -r requirements/requirements.in
 h11==0.14.0
     # via httpcore
@@ -225,3 +227,45 @@ yarl==1.11.1
 zipp==3.20.2
     # via importlib-metadata
 llama-parse==0.5.1
+
+PyQt6==6.7.1
+
+streamlit==1.38.0
+
+watchdog==4.0.2
+
+
+
+altair==5.4.1
+    # via streamlit
+blinker==1.8.2
+    # via streamlit
+cachetools==5.5.0
+    # via streamlit
+    #   requests
+narwhals==1.8.2
+    # via altair
+pandas==2.2.3
+    # via streamlit
+protobuf==5.28.2
+    # via streamlit
+pyarrow==17.0.0
+    # via streamlit
+pydeck==0.9.1
+    # via streamlit
+python-dateutil==2.9.0.post0
+    # via pandas
+pytz==2024.2
+    # via pandas
+six==1.16.0
+    # via python-dateutil
+streamlit==1.38.0
+    # via -r requirements/requirements-browser.in
+tenacity==8.5.0
+    # via streamlit
+toml==0.10.2
+    # via streamlit
+tornado==6.4.1
+    # via streamlit
+tzdata==2024.1
+    # via pandas

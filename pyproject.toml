@@ -4,8 +4,8 @@
 # [[[end]]]
 
 [project]
-name = "aider-chat"
-description = "Aider is AI pair programming in your terminal"
+name = "vai"
+description = "Vai is AI pair programming tool"
 readme = "README.md"
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -23,11 +23,9 @@ classifiers = [
 requires-python = ">=3.9,<3.13"
 dynamic = ["dependencies", "optional-dependencies", "version"]
 
-[project.urls]
-Homepage = "https://github.com/paul-gauthier/aider"
 
 [project.scripts]
-aider = "aider.main:main"
+vai = "aider.main:main"
 
 [tool.setuptools.dynamic]
 dependencies = { file = "requirements.txt" }
@@ -36,7 +34,6 @@ dependencies = { file = "requirements.txt" }
 dev = { file = "requirements/requirements-dev.txt" }
 help = { file = "requirements/requirements-help.txt" }
 browser = { file = "requirements/requirements-browser.txt" }
-playwright = { file = "requirements/requirements-playwright.txt" }
 
 [tool.setuptools.packages.find]
 include = ["aider*", "aider.website"]
