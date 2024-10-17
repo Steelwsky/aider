@@ -259,8 +259,6 @@ pytz==2024.2
     # via pandas
 six==1.16.0
     # via python-dateutil
-streamlit==1.38.0
-    # via -r requirements/requirements-browser.in
 tenacity==8.5.0
     # via streamlit
 toml==0.10.2

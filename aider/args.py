@@ -687,6 +687,12 @@ def get_parser(default_config_files, git_root):
         metavar="PDF_FILE",
         help="Specify a PDF file to parse using llama_parser",
     )
+    # TODO may be remove
+    group.add_argument(
+        "--forced-path",
+        metavar="FORCED_PATH",
+        help="Specify a directory to work with",
+    )
 
     ##########
     group = parser.add_argument_group("Voice Settings")

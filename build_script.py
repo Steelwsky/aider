@@ -1,6 +1,8 @@
 import PyInstaller.__main__
 import os
 import json
+import streamlit
+import litellm
 
 # Get the absolute path to the directory containing this script
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -19,14 +21,18 @@ dependencies = get_requirements()
 # Collect data files from the root directory
 data_files = []
 for file in os.listdir(script_dir):
-    if file.endswith(('.json')):  # Add other extensions as needed
+    if file.endswith(('.json', '.log')):  # Add other extensions as needed
         if file == 'history.json':
             # Clear the contents of history.json
             history_path = os.path.join(script_dir, file)
             with open(history_path, 'w') as f:
-                json.dump([], f)  # Write an empty list to the file
+                json.dump(['/Users/steelewski/projects/bpc-vh'], f)  # Write an empty list to the file
             print(f"Cleared contents of {file}")
         data_files.append(os.path.join(script_dir, file))
+        
+streamlit_path = os.path.dirname(os.path.abspath(streamlit.__file__))
+litellm_path = os.path.dirname(os.path.abspath(litellm.__file__))
+litellm_path = os.path.dirname(os.path.abspath(litellm.__file__))
 
 # PyInstaller command
 pyinstaller_command = [
@@ -34,8 +40,18 @@ pyinstaller_command = [
     '--name=vai',
     '--onedir',
     '--windowed',
+    '--log-level=DEBUG',
     f'--add-data={os.path.join(script_dir, "aider")}:aider',
+    f'--add-data={streamlit_path}:streamlit',
+    f'--add-data={litellm_path}:litellm',
     '--collect-submodules=aider',
+    '--hidden-import=streamlit',
+    '--copy-metadata=streamlit',
+    '--hidden-import=tiktoken_ext.openai_public', 
+    '--hidden-import=tiktoken_ext',
+    # f'--additional-hooks-dir={os.path.join(script_dir, "hooks")}/hook-streamlit.py'
+    # '--additional-hooks-dir=./hooks hook-streamlit.py',
+    '--clean',
 ]
 
 # Add data files

@@ -153,6 +153,7 @@ class GUI:
             # self.cmds_tab, self.settings_tab = st.tabs(["Commands", "Settings"])
 
             # self.do_recommended_actions()
+            self.show_abs_path()
             self.do_add_to_chat()
             self.do_recent_msgs()
             self.do_clear_chat_history()
@@ -184,6 +185,10 @@ class GUI:
         # with st.expander("Add to the chat", expanded=True):
         self.do_add_files()
         self.do_add_web_page()
+        
+    def show_abs_path(self):
+        st.text("Current working directory:")
+        st.text(self.coder.repo.root)
 
     def do_add_files(self):
         fnames = st.multiselect(

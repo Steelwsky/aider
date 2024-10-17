@@ -67,6 +67,10 @@ class GitRepo:
         else:
             check_fnames = ["."]
 
+       
+        current_dir = os.getcwd()
+        print("[GitRepo] Current directory:", current_dir)
+        
         repo_paths = []
         for fname in check_fnames:
             fname = Path(fname)
