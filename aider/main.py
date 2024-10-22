@@ -350,12 +350,12 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
     if argv is None:
         argv = sys.argv[1:]
 
-    # TODO may be forced path is useless
-    print(argv)
-    print(f'********** main, return coder: {return_coder}')
+    # print(f'[argv]: {argv}')
+    # print(f'********** main, return coder: {return_coder}')
     path = argv[1]
-    current_dir = os.getcwd()
-    print("Current directory:", current_dir)
+    # print(f'[path]: {path}')
+    # current_dir = os.getcwd()
+    # print("Current directory:", current_dir)
     os.chdir(path)
     argv = [
         '--forced-path', path,
@@ -363,13 +363,12 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         '--map-tokens', '1024',
         '--openai-api-key', 'V1JGXME30TMGSDEDP18DLC5FDNRWV8PYVZFW3REB',
         '--openai-api-base', 'https://api.runpod.ai/v2/vllm-yp6hegkzteucku/openai/v1',
-        '--browser',
+        # '--browser', # NO BROWSER
     ]
-    print(argv)
+    # print(argv)
     
-    print(f'********** force_git_root1: {force_git_root}')
-    force_git_root = path
-    print(f'********** force_git_root2: {force_git_root}')
+    # force_git_root = path
+    # print(f'********** force_git_root2: {force_git_root}')
 
     if force_git_root:
         git_root = force_git_root

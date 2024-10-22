@@ -1,216 +1,200 @@
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
+                             QPushButton, QFileDialog, QLabel, QProgressBar,
+                             QMessageBox)
+from PyQt6.QtCore import QThread, pyqtSignal
 import sys
-import json
 import os
-import subprocess
-import logging
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPushButton, QListWidget, QFileDialog, QLineEdit, QLabel, QHBoxLayout, QScrollArea
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from pathlib import Path
+import importlib.util
+import threading
 from aider.main import main as aimain
-# from aider.main import main
 
-logging.basicConfig(filename='vai_launcher.log', level=logging.DEBUG,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
 
-class AiInstance(QThread):
-    finished = pyqtSignal(int)
+class WorkerThread(QThread):
+    finished = pyqtSignal()
+    progress = pyqtSignal(str)
 
-    def __init__(self, process_id, directory, model, args):
+    def __init__(self, main_function, target_dir):
         super().__init__()
-        self.process_id = process_id
-        self.directory = directory
-        self.model = model
-        self.args = args
-        self.running = True
+        self.main_function = main_function
+        self.target_dir = target_dir
 
-    # def run(self):
-    #     cmd = [sys.executable, "-m", "aider.main", "--model", self.model] + self.args.split()
-    #     self.process = subprocess.Popen(cmd, cwd=self.directory)
-    #     self.process.wait()
-    #     self.finished.emit(self.process_id)
-
-    # def run(self):
-    #     try:
-    #         # Now you can directly call the function from aider.main
-    #         logger.info(f"Starting AiInstance {self.process_id} for model: {self.model}")
-    #         while self.running:
-    #             main(self.args)
-    #             # Add additional logic here if needed for reentrancy
-
-    #         logger.info(f"AiInstance {self.process_id} finished successfully")
-
-    #     except Exception as e:
-    #         logger.error(f"Error in AiInstance {self.process_id}: {e}")
-    #     finally:
-    #         self.finished.emit(self.process_id)
-
-        
     def run(self):
-        
-        # aimain(argv=['--forced-path', self.directory])
-        
-        if hasattr(sys, '_MEIPASS'):
-            # When running inside a PyInstaller bundle
-            aider_main_path = os.path.join(sys._MEIPASS, 'aider', 'main.py')
-            python_path = os.path.join(sys._MEIPASS, 'Python')
-        else:
-            # Running in development (outside of PyInstaller)
-            aider_main_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'aider', 'main.py')
-            python_path = sys.executable
-            # python_path = '/Users/steelewski/projects/aider-forked/dist/vai/_internal/_internal/Python'
-        
-        # aider_main_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'aider', 'main.py')
-        
-        cmd = [python_path, aider_main_path, '--forced-path', self.directory, "--model", self.model] + self.args.split()
-        logger.info(f"Starting AiInstance {self.process_id} with command: {' '.join(cmd)}")
         try:
-            # self.process = subprocess.Popen(cmd, cwd=self.directory, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            print(f'******cmd is: {cmd}')
-            self.process = subprocess.Popen(cmd)
-            self.process.wait()
-            logger.info(f"AiInstance {self.process_id} finished with return code: {self.process.returncode}")
+            self.main_function(['--forced-path', self.target_dir])
+            self.finished.emit()
         except Exception as e:
-            logger.error(f"Error in AiInstance {self.process_id}: {str(e)}", exc_info=True)
-        finally:
-            self.finished.emit(self.process_id)
+            self.progress.emit(f"Error: {str(e)}")
 
-    def stop(self):
-        if self.process:
-            logger.info(f"Stopping AiInstance {self.process_id}")
-            self.process.terminate()
 
-class DirectorySelector(QWidget):
+def get_application_path():
+    """Get the correct application path whether running as script or bundled app"""
+    if getattr(sys, 'frozen', False):
+        # Running in a bundle
+        return sys._MEIPASS
+    else:
+        # Running in normal Python environment
+        return os.path.dirname(os.path.abspath(__file__))
+
+
+class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.initUI()
-        self.history_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'history.json')
-        self.load_history()
-        self.aider_processes = {}
-        self.next_process_id = 0
+        self.setWindowTitle("Directory Processor")
+        self.setMinimumSize(600, 400)
 
-    def initUI(self):
-        main_layout = QVBoxLayout()
+        # Create central widget and layout
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        layout = QVBoxLayout(central_widget)
 
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        main_layout.addWidget(scroll_area)
+        # Add title/description
+        title_label = QLabel("Directory Processing Tool")
+        title_label.setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 10px;")
+        layout.addWidget(title_label)
 
-        content_widget = QWidget()
-        self.content_layout = QVBoxLayout(content_widget)
-        scroll_area.setWidget(content_widget)
+        description = QLabel("This tool processes the contents of a selected directory.\n"
+                             "Please select the directory you want to process.")
+        description.setWordWrap(True)
+        layout.addWidget(description)
 
-        self.history_list = QListWidget()
-        self.content_layout.addWidget(self.history_list)
+        # Target Directory Selection
+        layout.addWidget(QLabel("\nTarget Directory:"))
+        self.target_dir_label = QLabel("No directory selected")
+        self.target_dir_label.setStyleSheet(
+            "padding: 5px; background-color: #a9a9a9; border-radius: 3px;")
+        layout.addWidget(self.target_dir_label)
 
-        select_button = QPushButton('Select Directory')
-        select_button.clicked.connect(self.select_directory)
-        self.content_layout.addWidget(select_button)
+        select_target_button = QPushButton("Select Directory to Process")
+        select_target_button.clicked.connect(self.select_target_directory)
+        layout.addWidget(select_target_button)
 
-        self.start_button = QPushButton('Start new vai instance')
-        self.start_button.clicked.connect(self.start_cli_app)
-        self.content_layout.addWidget(self.start_button)
+        # Add some spacing
+        layout.addSpacing(20)
 
-        self.instance_layout = QVBoxLayout()
-        self.content_layout.addLayout(self.instance_layout)
+        # Run button
+        self.run_button = QPushButton("Start Processing")
+        self.run_button.clicked.connect(self.run_process)
+        self.run_button.setEnabled(False)
+        self.run_button.setStyleSheet("padding: 10px;")
+        layout.addWidget(self.run_button)
 
-        self.setLayout(main_layout)
-        self.setWindowTitle('vai - Launcher')
-        self.setGeometry(300, 300, 500, 500)
+        # Progress indication
+        self.progress_label = QLabel("")
+        layout.addWidget(self.progress_label)
 
-    def load_history(self):
-        if os.path.exists(self.history_file):
-            with open(self.history_file, 'r') as f:
-                self.history = json.load(f)
-        else:
-            self.history = []
-        self.update_history_list()
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
+        layout.addWidget(self.progress_bar)
 
-    def save_history(self):
-        with open(self.history_file, 'w') as f:
-            json.dump(self.history, f)
+        # Add stretching space at the bottom
+        layout.addStretch()
 
-    def update_history_list(self):
-        self.history_list.clear()
-        for directory in self.history:
-            self.history_list.addItem(directory)
+        # Initialize variables
+        self.target_dir = None
+        self.main_function = None
 
-        if self.history_list.count() > 0:
-            self.history_list.setCurrentRow(0)
+        # Load the main function
+        self._load_main_function()
 
-    def select_directory(self):
-        directory = QFileDialog.getExistingDirectory(self, "Select Directory")
-        if directory:
-            if directory in self.history:
-                self.history.remove(directory)
-            self.history.insert(0, directory)
-            self.history = self.history[:10]
-            self.save_history()
-            self.update_history_list()
+    def _load_main_function(self):
+        try:
+            # Get the directory where the executable is located
+            # if getattr(sys, 'frozen', False):
+            #     # If running as compiled executable
+            #     application_path = sys._MEIPASS
+            # else:
+            # If running as script
+            application_path = get_application_path()
 
-    def start_cli_app(self):
-        selected_items = self.history_list.selectedItems()
-        if selected_items:
-            directory = selected_items[0].text()
-        elif self.history:
-            directory = self.history[0]
-        else:
-            directory = os.getcwd()
+            print(f'application_path: {application_path}')
+            # Construct path to main.py (assuming it's in myproj/ai/main.py)
+            main_path = Path(application_path) / "aider" / "main.py"
 
-        model = 'openai/mistralai/Codestral-22B-v0.1'
-        args = '--map-tokens 1024'
-        
-        process_id = self.next_process_id
-        self.next_process_id += 1
-        
-        instance_widget = QWidget()
-        instance_layout = QHBoxLayout(instance_widget)
-        
-        label = QLabel(f"Instance {process_id} ({os.path.basename(directory)})")
-        status_label = QLabel("Running")
-        stop_button = QPushButton("Stop")
-        stop_button.clicked.connect(lambda: self.stop_instance(process_id))
-        
-        instance_layout.addWidget(label)
-        instance_layout.addWidget(status_label)
-        instance_layout.addWidget(stop_button)
-        
-        self.instance_layout.addWidget(instance_widget)
-        
-        aimain(argv=['--forced-path', directory])
-        
-        # process = AiInstance(process_id, directory, model, args)
-        # process.finished.connect(self.on_aider_finished)
-        # process.start()
-        
-        # self.aider_processes[process_id] = {
-        #     'process': process,
-        #     'widget': instance_widget,
-        #     'status_label': status_label,
-        #     'stop_button': stop_button
-        # }
+            if main_path.exists():
+                spec = importlib.util.spec_from_file_location("main", str(main_path))
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                self.main_function = module.main
+            else:
+                QMessageBox.critical(
+                    self, "Error", "Could not find main.py in the expected location.")
+                sys.exit(1)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load main function: {str(e)}")
+            sys.exit(1)
 
-    def on_aider_finished(self, process_id):
-        logger.info(f"AiInstance {process_id} finished")
-        self.remove_instance(process_id, "Finished")
+    def select_target_directory(self):
+        dir_path = QFileDialog.getExistingDirectory(
+            self,
+            "Select Directory to Process",
+            "",
+            QFileDialog.Option.ShowDirsOnly
+        )
+        if dir_path:
+            self.target_dir = dir_path
+            self.target_dir_label.setText(f"Selected: {dir_path}")
+            self.run_button.setEnabled(True)
 
-    def stop_instance(self, process_id):
-        if process_id in self.aider_processes:
-            logger.info(f"Stopping AiInstance {process_id}")
-            instance = self.aider_processes[process_id]
-            instance['process'].stop()
-            self.remove_instance(process_id, "Stopped")
+    def run_process(self):
+        if not self.target_dir:
+            QMessageBox.warning(self, "Warning", "Please select a directory first.")
+            return
 
-    def remove_instance(self, process_id, status):
-        if process_id in self.aider_processes:
-            logger.info(f"Removing AiInstance {process_id} with status: {status}")
-            instance = self.aider_processes[process_id]
-            instance['widget'].setParent(None)
-            instance['widget'].deleteLater()
-            del self.aider_processes[process_id]
+        if not self.main_function:
+            QMessageBox.critical(self, "Error", "Main function not properly loaded.")
+            return
 
-if __name__ == '__main__':
+        # Confirm with user
+        reply = QMessageBox.question(
+            self,
+            "Confirm",
+            f"Are you sure you want to process the directory:\n{self.target_dir}?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            self.run_button.setEnabled(False)
+            self.progress_label.setText("Processing...")
+            self.progress_bar.setVisible(True)
+            self.progress_bar.setRange(0, 0)  # Infinite progress bar
+
+            # thread = threading.Thread(target=aimain, args=[f'--forced-path {self.target_dir}',])
+            # thread = threading.Thread(target=aimain, args=[self.target_dir,])
+            # thread.start()
+            # thread.join()
+
+            # Create and start worker thread
+            self.worker = WorkerThread(self.main_function, self.target_dir)
+            self.worker.finished.connect(self.process_finished)
+            self.worker.progress.connect(self.update_progress)
+            self.worker.start()
+
+    def process_finished(self):
+        self.progress_label.setText("Process completed successfully!")
+        self.progress_bar.setVisible(False)
+        self.run_button.setEnabled(True)
+
+        QMessageBox.information(
+            self,
+            "Success",
+            f"Directory processing complete:\n{self.target_dir}"
+        )
+
+    def update_progress(self, message):
+        self.progress_label.setText(message)
+
+
+def main():
     app = QApplication(sys.argv)
-    ex = DirectorySelector()
-    ex.show()
+
+    # Set application style
+    app.setStyle('Fusion')
+
+    window = MainWindow()
+    window.show()
     sys.exit(app.exec())
- 
+
+
+if __name__ == "__main__":
+    main()
