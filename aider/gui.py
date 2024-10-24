@@ -149,21 +149,14 @@ class GUI:
 
     def do_sidebar(self):
         with st.sidebar:
-            st.title(APP_NAME)
-            # self.cmds_tab, self.settings_tab = st.tabs(["Commands", "Settings"])
+            if st.button(f"Stop {APP_NAME}", type="primary"):
+                stop_application()
 
-            # self.do_recommended_actions()
+            st.title(APP_NAME)
             self.show_abs_path()
             self.do_add_to_chat()
             self.do_recent_msgs()
             self.do_clear_chat_history()
-            # st.container(height=150, border=False)
-            # st.write("### Experimental")
-
-            # st.warning(
-            #     "This browser version of aider is experimental. Please share feedback in [GitHub"
-            #     " issues](https://github.com/paul-gauthier/aider/issues)."
-            # )
 
     def do_settings_tab(self):
         pass
@@ -185,7 +178,7 @@ class GUI:
         # with st.expander("Add to the chat", expanded=True):
         self.do_add_files()
         self.do_add_web_page()
-        
+
     def show_abs_path(self):
         st.text("Current working directory:")
         st.text(self.coder.repo.root)
@@ -525,6 +518,19 @@ class GUI:
         if reply:
             self.prompt_as = None
             self.prompt = reply
+
+
+def stop_application():
+    """Function to stop the entire application"""
+    try:
+        print("Writing stop flag and stopping Streamlit...")
+        with open('stop_flag.txt', 'w') as f:
+            f.write('stop')
+        st.success("Stopping application...")
+        st.stop()
+        sys.exit(0)
+    except Exception as e:
+        st.error(f"Error stopping application: {e}")
 
 
 def gui_main():

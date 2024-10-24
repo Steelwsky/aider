@@ -8,11 +8,14 @@ import site
 from pathlib import Path
 import litellm
 import tree_sitter_language_pack
+import streamlit
 
 # Get the absolute path to the directory containing this script
 script_dir = os.path.dirname(os.path.abspath(__file__))
 litellm_path = os.path.dirname(os.path.abspath(litellm.__file__))
 tree_sitter_path = os.path.dirname(os.path.abspath(tree_sitter_language_pack.__file__))
+streamlit_path = os.path.dirname(os.path.abspath(streamlit.__file__))
+
 
 def get_requirements():
     req_file = os.path.join(script_dir, 'requirements.txt')
@@ -39,11 +42,13 @@ def get_requirements():
             return list(set(packages))
     return []
 
+
 def get_venv_packages():
     """Get list of packages installed in the virtual environment."""
     if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
         # We're in a virtual environment
-        venv_site_packages = Path(sys.prefix) / 'lib' / f'python{sys.version_info.major}.{sys.version_info.minor}' / 'site-packages'
+        venv_site_packages = Path(
+            sys.prefix) / 'lib' / f'python{sys.version_info.major}.{sys.version_info.minor}' / 'site-packages'
         if not venv_site_packages.exists():
             # Try Windows path format
             venv_site_packages = Path(sys.prefix) / 'Lib' / 'site-packages'
@@ -64,8 +69,9 @@ def get_venv_packages():
             elif item.is_file() and item.suffix == '.py':
                 # Handle single-file packages
                 packages.append(item.stem)
-    
+
     return list(set(packages))
+
 
 # Get dependencies from requirements.txt
 dependencies = get_requirements()
@@ -75,7 +81,7 @@ all_packages = list(set(dependencies + venv_packages))
 # Collect data files from the root directory
 data_files = []
 for file in os.listdir(script_dir):
-    if file.endswith(('.json', '.log')):
+    if file.endswith(('.json', '.log', '.txt')):
         if file == 'history.json':
             history_path = os.path.join(script_dir, file)
             with open(history_path, 'w') as f:
@@ -84,10 +90,6 @@ for file in os.listdir(script_dir):
             print(f"Cleared contents of {file}")
         data_files.append(os.path.join(script_dir, file))
 
-# streamlit_path = os.path.dirname(os.path.abspath(streamlit.__file__))
-# litellm_path = os.path.dirname(os.path.abspath(litellm.__file__))
-# litellm_path = os.path.dirname(os.path.abspath(litellm.__file__))
-
 # PyInstaller command
 pyinstaller_command = [
     'entrypoint.py',
@@ -95,14 +97,20 @@ pyinstaller_command = [
     '--onedir',
     '--windowed',
     '--log-level=DEBUG',
-    # '--debug=all',
+    '--debug=all',
     '--clean',
     f'--add-data={os.path.join(script_dir, "aider")}:aider',
     f'--add-data={litellm_path}:litellm',
     f'--add-data={tree_sitter_path}:tree_sitter_language_pack',
+    f'--add-data={streamlit_path}:streamlit',
+    # '--hidden-import=streamlit',
+    '--copy-metadata=streamlit',
     '--hidden-import=prompt-toolkit',
     '--hidden-import=tiktoken_ext',
-    '--hidden-import=tiktoken_ext.openai_public', 
+    '--hidden-import=tiktoken_ext.openai_public',
+    '--hidden-import=streamlit.web.cli',
+    '--hidden-import=streamlit.runtime.scriptrunner.magic_funcs',
+    '--hidden-import=tiktoken_ext.openai_public',
 ]
 
 PIL_IMPORTS = [
@@ -122,7 +130,7 @@ for file in data_files:
 # Add each dependency as a hidden import
 for package in all_packages:
     pyinstaller_command.append(f'--hidden-import={package}')
-    
+
 for pil_import in PIL_IMPORTS:
     pyinstaller_command.append(f'--hidden-import={pil_import}')
 

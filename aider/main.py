@@ -363,7 +363,7 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         '--map-tokens', '1024',
         '--openai-api-key', 'V1JGXME30TMGSDEDP18DLC5FDNRWV8PYVZFW3REB',
         '--openai-api-base', 'https://api.runpod.ai/v2/vllm-yp6hegkzteucku/openai/v1',
-        # '--browser', # NO BROWSER
+        # '--browser',
     ]
     # print(argv)
     
@@ -475,8 +475,11 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
     if args.gui and not return_coder:
         # if not check_streamlit_install(io):
         #     return
+        print('[***args.gui and not return_coder***]')
         launch_gui(argv)
         return
+    
+    print('[AFTER args.gui and not return_coder]')
 
     if args.verbose:
         for fname in loaded_dotenvs:
