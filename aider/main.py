@@ -7,7 +7,7 @@ import threading
 import traceback
 from pathlib import Path
 from dotenv import load_dotenv
-import subprocess
+import streamlit.web.bootstrap as bootstrap
 
 import git
 from dotenv import load_dotenv
@@ -155,49 +155,55 @@ def check_streamlit_install(io):
     )
 
 
-def launch_gui(args):
+def get_arguments():
+    """Read arguments from the JSON file."""
+    try:
+        if getattr(sys, 'frozen', False):
+            base_path = os.path.dirname(sys.executable)
+            add_path = '_internal'
+        else:
+            add_path = '..'
+            base_path = os.path.dirname(os.path.abspath(__file__))
+
+        args_file = os.path.join(base_path, add_path, 'args.json')
+        print(f'[get_arguments] base_path: {base_path}')
+
+        if os.path.exists(args_file):
+            with open(args_file, 'r') as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"Error reading arguments: {str(e)}")
+    return {}
+
+def launch_gui(args, json_args):
     from streamlit.web import cli
 
     from aider import gui
 
     print()
     print("CONTROL-C to exit...")
+    print(f'[launch_gui] json_args: {json_args}')
+    
+    script_path = os.path.join(os.path.dirname(__file__), 'aider','gui.py')
+    print(f'[app.py] path: {script_path}')
 
-    target = gui.__file__
+    # Set Streamlit configuration
+    os.environ['STREAMLIT_SERVER_PORT'] = json_args['port']
+    os.environ['STREAMLIT_SERVER_ADDRESS'] = 'localhost'
+    os.environ['STREAMLIT_SERVER_HEADLESS'] = 'true'
+    os.environ['STREAMLIT_BROWSER_GATHER_USAGE_STATS'] = 'false'
 
-    # TODO check and delete later
-    # st_args = ["run", target]
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gui.py') #TODO ADD arg with path to dir
-    st_args = ["run", path]
-
-    st_args += [
-        "--browser.gatherUsageStats=false",
-        "--runner.magicEnabled=false",
-        "--server.runOnSave=false",
-    ]
-
-    if "-dev" in __version__:
-        print("Watching for file changes.")
-    else:
-        st_args += [
-            "--global.developmentMode=false",
-            "--server.fileWatcherType=none",
-            "--client.toolbarMode=viewer",  # minimal?
-        ]
-
-    st_args += ["--"] + args
-
-    # TODO delete print
-    print(f'[launch_gui] st_args: {st_args}')
-    cli.main(st_args)
-    # subprocess.run(["streamlit"] + st_args)
-
-    # from click.testing import CliRunner
-    # runner = CliRunner()
-    # from streamlit.web import bootstrap
-    # bootstrap.load_config_options(flag_options={})
-    # cli.main_run(target, args)
-    # sys.argv = ['streamlit', 'run', '--'] + args
+    # Run the Streamlit application directly
+    bootstrap.run(script_path, False, [], flag_options={
+        'server.address': 'localhost',
+        'server.port': json_args['port'],
+        'server.headless': True,
+        'browser.serverAddress': 'localhost',
+        'browser.serverPort': json_args['port'],
+        'server.runOnSave': False,
+        'server.enableCORS': False,
+        'global.developmentMode': False,
+    })
 
 
 def parse_lint_cmds(lint_cmds, io):
@@ -346,16 +352,12 @@ def sanity_check_repo(repo, io):
 
 def main(argv=None, input=None, output=None, force_git_root=None, return_coder=False):
     report_uncaught_exceptions()
+    json_args = get_arguments()
 
     if argv is None:
         argv = sys.argv[1:]
 
-    # print(f'[argv]: {argv}')
-    # print(f'********** main, return coder: {return_coder}')
-    path = argv[1]
-    # print(f'[path]: {path}')
-    # current_dir = os.getcwd()
-    # print("Current directory:", current_dir)
+    path = json_args.get('directory', 'Not Found')
     os.chdir(path)
     argv = [
         '--forced-path', path,
@@ -363,18 +365,14 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         '--map-tokens', '1024',
         '--openai-api-key', 'V1JGXME30TMGSDEDP18DLC5FDNRWV8PYVZFW3REB',
         '--openai-api-base', 'https://api.runpod.ai/v2/vllm-yp6hegkzteucku/openai/v1',
-        # '--browser',
+        '--browser',
     ]
-    # print(argv)
-    
-    # force_git_root = path
-    # print(f'********** force_git_root2: {force_git_root}')
 
     if force_git_root:
         git_root = force_git_root
     else:
         git_root = get_git_root()
-        
+
     print(f'***** git_root: {git_root} *****')
 
     conf_fname = Path(f".{APP_NAME.lower()}.conf.yml")
@@ -476,10 +474,8 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         # if not check_streamlit_install(io):
         #     return
         print('[***args.gui and not return_coder***]')
-        launch_gui(argv)
+        launch_gui(argv, json_args)
         return
-    
-    print('[AFTER args.gui and not return_coder]')
 
     if args.verbose:
         for fname in loaded_dotenvs:
