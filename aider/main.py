@@ -160,12 +160,12 @@ def get_arguments():
     try:
         if getattr(sys, 'frozen', False):
             base_path = os.path.dirname(sys.executable)
-            add_path = '_internal'
+            add_path = ['..', 'launcher'] # jump back one folder, and cd launcher folder
         else:
             add_path = '..'
             base_path = os.path.dirname(os.path.abspath(__file__))
 
-        args_file = os.path.join(base_path, add_path, 'args.json')
+        args_file = os.path.join(base_path, *add_path, 'args.json')
         print(f'[get_arguments] base_path: {base_path}')
 
         if os.path.exists(args_file):
@@ -175,6 +175,7 @@ def get_arguments():
         print(f"Error reading arguments: {str(e)}")
     return {}
 
+
 def launch_gui(args, json_args):
     from streamlit.web import cli
 
@@ -183,12 +184,16 @@ def launch_gui(args, json_args):
     print()
     print("CONTROL-C to exit...")
     print(f'[launch_gui] json_args: {json_args}')
-    
-    script_path = os.path.join(os.path.dirname(__file__), 'aider','gui.py')
+
+    if getattr(sys, 'frozen', False):
+        base_path = os.path.join(os.path.dirname(sys.executable), '_internal', 'aider')
+    else:
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.join(base_path, 'gui.py')
     print(f'[app.py] path: {script_path}')
 
     # Set Streamlit configuration
-    os.environ['STREAMLIT_SERVER_PORT'] = json_args['port']
+    os.environ['STREAMLIT_SERVER_PORT'] = str(json_args['port'])
     os.environ['STREAMLIT_SERVER_ADDRESS'] = 'localhost'
     os.environ['STREAMLIT_SERVER_HEADLESS'] = 'true'
     os.environ['STREAMLIT_BROWSER_GATHER_USAGE_STATS'] = 'false'
@@ -351,6 +356,7 @@ def sanity_check_repo(repo, io):
 
 
 def main(argv=None, input=None, output=None, force_git_root=None, return_coder=False):
+    load_dotenv()
     report_uncaught_exceptions()
     json_args = get_arguments()
 
@@ -361,12 +367,14 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
     os.chdir(path)
     argv = [
         '--forced-path', path,
-        '--model', 'openai/mistralai/Codestral-22B-v0.1',
+        '--model', json_args.get('model', 'nvidia/Llama-3.1-Nemotron-70B-Instruct'),
         '--map-tokens', '1024',
-        '--openai-api-key', 'V1JGXME30TMGSDEDP18DLC5FDNRWV8PYVZFW3REB',
-        '--openai-api-base', 'https://api.runpod.ai/v2/vllm-yp6hegkzteucku/openai/v1',
+        '--openai-api-key', json_args.get('api_key', os.getenv("NVIDIA_KEY")),
+        '--openai-api-base', json_args.get('api_base', os.getenv("NVIDIA_BASE")),
         '--browser',
     ]
+    # os.environ["HUGGINGFACE_API_KEY"] = os.getenv("HUGGINGFACE_API_KEY")
+    os.environ["HUGGINGFACE_API_KEY"] = "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"
 
     if force_git_root:
         git_root = force_git_root
