@@ -1,27 +1,18 @@
-import sys
 import os
+import sys
+import json
+import time
+import signal
+import socket
 import subprocess
 import webbrowser
-import signal
-import time
-import socket
-import json
 from typing import Dict, Any
+from PyQt6.QtCore import QThread, pyqtSignal, QTimer
 from PyQt6.QtWidgets import (
-    QApplication,
-    QMainWindow,
-    QPushButton,
-    QVBoxLayout,
-    QWidget,
-    QLabel,
-    QFileDialog,
-    QComboBox,
-    QHBoxLayout,
-    QLineEdit,
-    QMenu
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+    QPushButton, QLabel, QComboBox, QFileDialog, QGroupBox, 
+    QTableWidget, QTableWidgetItem, QHeaderView, QLineEdit, QMenu
 )
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-
 
 def find_available_port(start_port=8501):
     """Find the first available port starting from start_port"""
@@ -34,647 +25,291 @@ def find_available_port(start_port=8501):
             except socket.error:
                 port += 1
 
-
-def load_recent_paths():
-    """Load recent paths from JSON file"""
-    try:
-        if getattr(sys, 'frozen', False):
-            base_path = os.path.dirname(sys.executable)
-        else:
-            base_path = os.path.dirname(os.path.abspath(__file__))
-
-        recent_paths_file = os.path.join(base_path, 'recent_paths.json')
-        if os.path.exists(recent_paths_file):
-            with open(recent_paths_file, 'r') as f:
-                return json.load(f)
-    except Exception as e:
-        log_error(f"Failed to load recent paths: {str(e)}")
-    return []
-
-
-def save_recent_paths(paths):
-    """Save recent paths to JSON file"""
-    try:
-        if getattr(sys, 'frozen', False):
-            base_path = os.path.dirname(sys.executable)
-        else:
-            base_path = os.path.dirname(os.path.abspath(__file__))
-
-        recent_paths_file = os.path.join(base_path, 'recent_paths.json')
-        with open(recent_paths_file, 'w') as f:
-            json.dump(paths, f)
-    except Exception as e:
-        log_error(f"Failed to save recent paths: {str(e)}")
-
-
-def log_error(message):
-    """Helper function to log errors"""
-    print(f"ERROR: {message}", file=sys.stderr)
-    if getattr(sys, 'frozen', False):
-        log_path = os.path.join(os.path.dirname(sys.executable), 'launcher_error.log')
-        with open(log_path, 'a') as f:
-            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}: {message}\n")
-
-
 class ConfigManager:
+    """Manages configuration storage and retrieval"""
     def __init__(self):
-        self.config_path = self._get_config_path()
-        self._config: Dict[str, Any] = self._load_config()
+        self.base_path = self._get_base_path()
+        self.config_file = os.path.join(self.base_path, 'config.json')
+        self.config = self._load_config()
 
-    def _get_config_path(self) -> str:
-        """Determine the correct path for args.json based on whether app is frozen"""
+    def _get_base_path(self):
         if getattr(sys, 'frozen', False):
-            launcher_path = os.path.dirname(sys.executable)
-            add_path = "_internal"
-            base_path = os.path.abspath(os.path.join(launcher_path, '..', 'vai'))
-            return os.path.join(base_path, add_path, 'args.json')
-        else:
-            # For development environment
-            base_path = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
-            return os.path.join(base_path, 'args.json')
+            return os.path.dirname(sys.executable)
+        return os.path.dirname(os.path.abspath(__file__))
 
-    def _load_config(self) -> Dict[str, Any]:
-        """Load configuration from args.json"""
+    def _load_config(self):
         try:
-            if os.path.exists(self.config_path):
-                with open(self.config_path, 'r') as f:
+            if os.path.exists(self.config_file):
+                with open(self.config_file, 'r') as f:
                     return json.load(f)
-            return {}
         except Exception as e:
-            print(f"Error loading config: {str(e)}")
-            return {}
+            print(f"Error loading config: {e}")
+        return {
+            'api_key': '',
+            'api_base': 'https://integrate.api.nvidia.com/v1',
+            'model': 'nvidia/llama-3.1-nemotron-70b-instruct',
+            'recent_paths': [],
+            'instances': {}
+        }
 
-    def save_config(self) -> bool:
-        """Save current configuration to args.json"""
+    def save(self):
         try:
-            # Ensure directory exists
-            os.makedirs(os.path.dirname(self.config_path), exist_ok=True)
-            with open(self.config_path, 'w') as f:
-                json.dump(self._config, f, indent=4)
-            return True
+            with open(self.config_file, 'w') as f:
+                json.dump(self.config, f, indent=4)
         except Exception as e:
-            print(f"Error saving config: {str(e)}")
-            return False
+            print(f"Error saving config: {e}")
 
-    def get(self, key: str, default: Any = None) -> Any:
-        """Get a value from the config"""
-        return self._config.get(key, default)
+    def get(self, key, default=None):
+        return self.config.get(key, default)
 
-    def set(self, key: str, value: Any) -> bool:
-        """Set a value in the config and save it"""
-        self._config[key] = value
-        return self.save_config()
+    def set(self, key, value):
+        self.config[key] = value
+        self.save()
 
-    def update(self, new_values: Dict[str, Any]) -> bool:
-        """Update multiple config values at once"""
-        self._config.update(new_values)
-        return self.save_config()
-
-    @property
-    def config(self) -> Dict[str, Any]:
-        """Get the entire config dictionary"""
-        return self._config.copy()
-
+    def add_recent_path(self, path):
+        recent = self.config.get('recent_paths', [])
+        if path in recent:
+            recent.remove(path)
+        recent.insert(0, path)
+        self.config['recent_paths'] = recent[:10]  # Keep only 10 most recent
+        self.save()
 
 class StreamlitThread(QThread):
+    """Handles running a Streamlit instance"""
     error_occurred = pyqtSignal(str)
     started_successfully = pyqtSignal()
     status_update = pyqtSignal(str)
 
-    def __init__(self, arguments=None):
+    def __init__(self, port, directory, api_key, api_base, model):
         super().__init__()
+        self.port = port
+        self.directory = directory
+        self.api_key = api_key
+        self.api_base = api_base
+        self.model = model
         self.process = None
         self._is_running = False
-        self.config_manager = ConfigManager()
-    
+        self.start_time = time.time()
+
     def run(self):
         try:
+            # Set up environment variables
+            env = os.environ.copy()
+            env.update({
+                'APP_PORT': str(self.port),
+                'APP_API_KEY': self.api_key,
+                'APP_API_BASE': self.api_base,
+                'APP_MODEL': self.model,
+                'APP_DIRECTORY': self.directory
+            })
+
+            # Determine the correct path for the Streamlit executable
             if getattr(sys, 'frozen', False):
-                launcher_path = os.path.dirname(sys.executable)
-                base_path = os.path.abspath(os.path.join(launcher_path, '..', 'vai'))
+                base_path = os.path.abspath(os.path.join(os.path.dirname(sys.executable), '..', 'vai'))
             else:
-                # For development environment
-                base_path = os.path.abspath(os.path.join(
-                    os.path.dirname(os.path.abspath(__file__))))
+                base_path = os.path.dirname(os.path.abspath(__file__))
+            
+            streamlit_exe = os.path.join(base_path, 'ai.exe' if sys.platform == 'win32' else 'ai')
 
-            self.status_update.emit(f"Base path: {base_path}")
-            streamlit_exe = os.path.join(
-                base_path, 'ai.exe' if sys.platform == 'win32' else 'ai')
-            # Start the packaged Streamlit process
-            cmd = [streamlit_exe]
-            self.status_update.emit(f"Starting process with command: {cmd}")
-
-            try:
-                if sys.platform != 'win32':
-                    self.process = subprocess.Popen(
-                        cmd,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True,
-                        preexec_fn=os.setsid
-                    )
-                else:
-                    self.process = subprocess.Popen(
-                        cmd,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True,
-                        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
-                    )
-            except Exception as e:
-                error_msg = f"Failed to start Streamlit process: {str(e)}"
-                log_error(error_msg)
-                self.error_occurred.emit(error_msg)
-                return
+            # Start the process
+            creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == 'win32' else 0
+            self.process = subprocess.Popen(
+                [streamlit_exe],
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                creationflags=creation_flags
+            )
 
             self._is_running = True
-            self.status_update.emit("Process started, waiting for initialization...")
-
-            # Wait for a brief moment to let Streamlit start
-            time.sleep(2)
-
-            # Check if process is still running and get any error output
-            if self.process.poll() is not None:
-                error_output = self.process.stderr.read()
-                error_msg = f"Process ended immediately. Exit code: {self.process.returncode}. Error output: {error_output}"
-                log_error(error_msg)
-                self.error_occurred.emit(error_msg)
-                return
-
-            self.status_update.emit("Process is running, emitting success signal")
             self.started_successfully.emit()
 
-            # Keep running until stopped
+            # Monitor the process
             while self._is_running and self.process.poll() is None:
-                time.sleep(0.1)
-
-            if self._is_running and self.process.poll() is not None:
-                error = self.process.stderr.read()
-                error_msg = f"Streamlit process ended unexpectedly: {error}"
-                log_error(error_msg)
-                self.error_occurred.emit(error_msg)
+                stdout = self.process.stdout.readline()
+                if stdout:
+                    self.status_update.emit(stdout.strip())
+                stderr = self.process.stderr.readline()
+                if stderr:
+                    self.status_update.emit(f"Error: {stderr.strip()}")
 
         except Exception as e:
-            if self._is_running:
-                error_msg = f"Unexpected error: {str(e)}"
-                log_error(error_msg)
-                self.error_occurred.emit(error_msg)
+            self.error_occurred.emit(str(e))
         finally:
             self._is_running = False
 
-    def _kill_streamlit_on_port(self, port):
-        """Kill any existing Streamlit process on the specified port"""
-        if sys.platform == 'win32':
-            try:
-                # Find and kill process using the port on Windows
-                cmd = f'for /f "tokens=5" %a in (\'netstat -aon ^| find "{port}" ^| find "LISTENING"\') do taskkill /F /PID %a'
-                subprocess.run(cmd, shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-            except Exception as e:
-                log_error(f"Error killing process on port {port}: {str(e)}")
-        else:
-            try:
-                # Find and kill process using the port on Unix
-                cmd = f"lsof -ti:{port} | xargs kill -9"
-                subprocess.run(cmd, shell=True, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-            except Exception as e:
-                log_error(f"Error killing process on port {port}: {str(e)}")
-    
-    def _kill_python_processes(self):
-        """Kill all related Python processes"""
-        if self.process and self.process.pid:
-            try:
-                if sys.platform == 'win32':
-                    # Kill process tree on Windows
-                    subprocess.run(['taskkill', '/F', '/T', '/PID', str(self.process.pid)], 
-                                 stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-                else:
-                    # Kill process group on Unix
-                    try:
-                        pgid = os.getpgid(self.process.pid)
-                        os.killpg(pgid, signal.SIGTERM)
-                        time.sleep(0.5)
-                        
-                        # If process still exists, force kill
-                        if self.process.poll() is None:
-                            os.killpg(pgid, signal.SIGKILL)
-                    except ProcessLookupError:
-                        # If process group not found, try direct process termination
-                        self.process.terminate()
-                        time.sleep(0.5)
-                        if self.process.poll() is None:
-                            self.process.kill()
-                
-                # Wait for process to finish
-                try:
-                    self.process.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    pass
-                    
-            except Exception as e:
-                log_error(f"Error killing Python processes: {str(e)}")
-                
     def stop(self):
-        """Stop all processes and clean up resources"""
-        self._is_running = False
-        
         if self.process:
-            try:
-                # Kill Python processes first
-                self._kill_python_processes()
-                
-                # Then clean up any remaining port usage
-                self._kill_process_on_port()
-                
-            except Exception as e:
-                log_error(f"Error in stop process: {str(e)}")
-            finally:
-                self.process = None
+            if sys.platform == 'win32':
+                subprocess.run(['taskkill', '/F', '/T', '/PID', str(self.process.pid)])
+            else:
+                os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+            self.process = None
+        self._is_running = False
 
+    @property
+    def runtime(self):
+        """Get formatted runtime duration"""
+        duration = int(time.time() - self.start_time)
+        hours = duration // 3600
+        minutes = (duration % 3600) // 60
+        seconds = duration % 60
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
 class StreamlitLauncher(QMainWindow):
+    """Main application window"""
     def __init__(self):
         super().__init__()
-        self.streamlit_thread = None
-        self.current_port = None
-        self.current_directory = None
-        self.recent_paths = load_recent_paths()
-        self.streamlit_args = {}
-        self.config_manager = ConfigManager()
+        self.config = ConfigManager()
+        self.instances: Dict[int, StreamlitThread] = {}
         self.initUI()
-
-    def mask_api_key(self, api_key):
-        if not api_key:
-            return ''
-        return '*' * (len(api_key) - 4) + api_key[-4:] if len(api_key) > 4 else api_key
-
-    def create_api_key_section(self) -> QHBoxLayout:
-        """Create and return the API key input section"""
-        api_key_layout = QHBoxLayout()
-
-        api_key_label = QLabel('API Key:')
-        api_key_label.setFixedWidth(60)
-
-        self.api_key_input = QLineEdit()
-        self.api_key_input.setFixedHeight(24)
-        self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        saved_api_key = self.config_manager.get('api_key', '')
-        self.api_key_input.setText(saved_api_key)
-        self.api_key_input.textChanged.connect(self.on_api_key_changed)
-
-        self.toggle_view_button = QPushButton('👁️')
-        self.toggle_view_button.setFixedSize(30, 20)
-        self.toggle_view_button.clicked.connect(self.toggle_api_key_visibility)
-        self.toggle_view_button.setStyleSheet("""
-            QPushButton {
-                background-color: #f0f0f0;
-                border-radius: 5px;
-                padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: #e0e0e0;
-            }
-        """)
-
-        api_key_layout.addWidget(api_key_label)
-        api_key_layout.addWidget(self.api_key_input)
-        api_key_layout.addWidget(self.toggle_view_button)
-        # api_key_layout.addSpacing(10)
-
-        return api_key_layout
-
-    def create_api_base_section(self) -> QHBoxLayout:
-        """Create and return the API base URL input section"""
-        api_base_layout = QHBoxLayout()
-
-        api_base_label = QLabel('API Base:')
-        api_base_label.setFixedWidth(60)
-
-        self.api_base_input = QLineEdit()
-        self.api_base_input.setFixedHeight(24)
-        saved_api_base = self.config_manager.get('api_base', 'https://integrate.api.nvidia.com/v1')
-        self.api_base_input.setText(saved_api_base)
-        self.api_base_input.setPlaceholderText('https://api.openai.com/v1')
-        self.api_base_input.textChanged.connect(self.on_api_base_changed)
-
-        api_base_layout.addWidget(api_base_label)
-        api_base_layout.addWidget(self.api_base_input)
-
-        return api_base_layout
-
-    def create_model_section(self) -> QHBoxLayout:
-        """Create and return the model selection section"""
-        model_layout = QHBoxLayout()
-
-        model_label = QLabel('Model:')
-        model_label.setFixedWidth(60)
-
-        self.model_input = QLineEdit()
-        self.model_input.setFixedHeight(24)
-        saved_model = self.config_manager.get('model', 'nvidia/llama-3.1-nemotron-70b-instruct')
-        self.model_input.setText(saved_model)
-        self.model_input.setPlaceholderText('gpt-4-turbo-preview')
-        self.model_input.textChanged.connect(self.on_model_changed)
-
-        self.model_dropdown = QPushButton('▼')
-        self.model_dropdown.setFixedSize(30, 20)
-        self.model_dropdown.clicked.connect(self.show_model_menu)
-        self.model_dropdown.setStyleSheet("""
-            QPushButton {
-                background-color: #f0f0f0;
-                border-radius: 5px;
-                padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: #e0e0e0;
-            }
-        """)
-
-        model_layout.addWidget(model_label)
-        model_layout.addWidget(self.model_input)
-        model_layout.addWidget(self.model_dropdown)
-
-        return model_layout
-
-    def create_api_config_section(self) -> QVBoxLayout:
-        """Create and return the complete API configuration section"""
-        api_config_layout = QVBoxLayout()
-
-        # Add all API-related sections
-        api_config_layout.addLayout(self.create_api_key_section())
-        api_config_layout.addSpacing(4)
-
-        api_config_layout.addLayout(self.create_api_base_section())
-        api_config_layout.addSpacing(4)
-
-        api_config_layout.addLayout(self.create_model_section())
-        api_config_layout.addSpacing(4)
-
-        # Add some spacing after the API config section
-        api_config_layout.addSpacing(20)
-
-        return api_config_layout
+        
+        # Start timer for updating instance information
+        self.update_timer = QTimer()
+        self.update_timer.timeout.connect(self.update_instances_display)
+        self.update_timer.start(1000)
 
     def initUI(self):
-        self.setWindowTitle('Streamlit App Launcher')
-        self.setFixedSize(600, 500)
+        self.setWindowTitle('Streamlit Multi-Instance Launcher')
+        self.setFixedSize(600, 700)
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Title
-        title_label = QLabel('Streamlit Application Launcher')
-        title_label.setStyleSheet('font-size: 16px; font-weight: bold; margin-bottom: 20px;')
-        title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title_label)
-
-        # Directory selection combo box
-        self.path_combo = QComboBox()
-        self.path_combo.setStyleSheet('padding: 5px; margin-bottom: 10px;')
-        self.path_combo.addItems(self.recent_paths)
-        self.path_combo.setEditable(True)
-        self.path_combo.setInsertPolicy(QComboBox.InsertPolicy.InsertAtTop)
-        layout.addWidget(self.path_combo)
-
-        # Directory browse button
-        directory_layout = QHBoxLayout()
-        self.browse_button = QPushButton('Browse Directory')
-        self.browse_button.setStyleSheet("""
-            QPushButton {
-                background-color: #4caf50;
-                color: white;
-                border-radius: 5px;
-                padding: 5px 15px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #45a049;
-            }
-        """)
-        self.browse_button.clicked.connect(self.browse_directory)
-        directory_layout.addWidget(self.browse_button)
-        layout.addLayout(directory_layout)
-
-        layout.addLayout(self.create_api_config_section())
-
+        # Directory selection
+        self.setup_directory_section(layout)
+        
+        # API configuration
+        self.setup_api_section(layout)
+        
+        # Instances table
+        self.setup_instances_table(layout)
+        
         # Launch button
-        self.launch_button = QPushButton('Launch Streamlit App')
-        self.launch_button.setFixedSize(200, 50)
-        self.launch_button.setStyleSheet("""
-            QPushButton {
-                background-color: #1e88e5;
-                color: white;
-                border-radius: 5px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #1976d2;
-            }
-            QPushButton:pressed {
-                background-color: #1565c0;
-            }
-        """)
-        self.launch_button.clicked.connect(self.toggle_streamlit)
-        layout.addWidget(self.launch_button)
+        self.setup_launch_button(layout)
 
-        # Status labels
-        self.status_label = QLabel('')
-        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.status_label.setStyleSheet('color: #666; margin-top: 10px;')
-        layout.addWidget(self.status_label)
+    def setup_directory_section(self, layout):
+        self.path_combo = QComboBox()
+        self.path_combo.setEditable(True)
+        self.path_combo.addItems(self.config.get('recent_paths', []))
+        
+        browse_button = QPushButton('Browse')
+        browse_button.clicked.connect(self.browse_directory)
+        
+        dir_layout = QHBoxLayout()
+        dir_layout.addWidget(self.path_combo)
+        dir_layout.addWidget(browse_button)
+        layout.addLayout(dir_layout)
 
-        self.port_label = QLabel('')
-        self.port_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.port_label.setStyleSheet('color: #666; margin-top: 5px;')
-        layout.addWidget(self.port_label)
+    def setup_api_section(self, layout):
+        api_group = QGroupBox("API Configuration")
+        api_layout = QVBoxLayout()
 
-        self.debug_label = QLabel('')
-        self.debug_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.debug_label.setStyleSheet('color: #666; margin-top: 10px; font-size: 10px;')
-        self.debug_label.setWordWrap(True)
-        layout.addWidget(self.debug_label)
+        # API Key
+        self.api_key_input = QLineEdit(self.config.get('api_key', ''))
+        self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+        api_layout.addWidget(QLabel('API Key:'))
+        api_layout.addWidget(self.api_key_input)
 
-        # Center window
-        screen_geometry = QApplication.primaryScreen().geometry()
-        x = (screen_geometry.width() - self.width()) // 2
-        y = (screen_geometry.height() - self.height()) // 2
-        self.move(x, y)
+        # API Base
+        self.api_base_input = QLineEdit(self.config.get('api_base', ''))
+        api_layout.addWidget(QLabel('API Base:'))
+        api_layout.addWidget(self.api_base_input)
 
-        self.is_running = False
+        # Model
+        self.model_input = QLineEdit(self.config.get('model', ''))
+        api_layout.addWidget(QLabel('Model:'))
+        api_layout.addWidget(self.model_input)
 
-    def on_api_key_changed(self, new_key: str):
-        """Handle API key changes and save to config"""
-        self.config_manager.set('api_key', new_key)
-        if self.api_key_input.echoMode() == QLineEdit.EchoMode.Password:
-            masked_key = self.mask_api_key(new_key)
-            self.api_key_input.setPlaceholderText(masked_key)
+        api_group.setLayout(api_layout)
+        layout.addWidget(api_group)
 
-    def mask_api_key(self, api_key: str) -> str:
-        """Mask all but the last 4 characters of the API key"""
-        if not api_key:
-            return ''
-        return '*' * (len(api_key) - 4) + api_key[-4:] if len(api_key) > 4 else api_key
+    def setup_instances_table(self, layout):
+        self.instances_table = QTableWidget()
+        self.instances_table.setColumnCount(4)
+        self.instances_table.setHorizontalHeaderLabels(['Port', 'Directory', 'Runtime', 'Action'])
+        self.instances_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        layout.addWidget(self.instances_table)
 
-    def toggle_api_key_visibility(self):
-        """Toggle between showing and hiding the API key"""
-        current_key = self.config_manager.get('api_key', '')
-        if self.api_key_input.echoMode() == QLineEdit.EchoMode.Password:
-            self.api_key_input.setEchoMode(QLineEdit.EchoMode.Normal)
-            self.api_key_input.setText(current_key)
-        else:
-            self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-            self.api_key_input.setText(current_key)
+    def setup_launch_button(self, layout):
+        launch_button = QPushButton('Launch New Instance')
+        launch_button.clicked.connect(self.launch_new_instance)
+        layout.addWidget(launch_button)
 
-    def on_api_base_changed(self, new_base: str):
-        """Handle API base URL changes"""
-        self.config_manager.set('api_base', new_base)
+    def launch_new_instance(self):
+        directory = self.path_combo.currentText()
+        if not directory or not os.path.exists(directory):
+            return
+        
+        # Save directory to recent paths
+        self.config.add_recent_path(directory)
+        
+        # Find available port and create new instance
+        port = find_available_port()
+        thread = StreamlitThread(
+            port=port,
+            directory=directory,
+            api_key=self.api_key_input.text(),
+            api_base=self.api_base_input.text(),
+            model=self.model_input.text()
+        )
+        
+        # Connect signals
+        thread.started_successfully.connect(lambda: self.on_instance_started(port))
+        thread.error_occurred.connect(lambda msg: self.on_instance_error(port, msg))
+        
+        # Store and start instance
+        self.instances[port] = thread
+        thread.start()
+        
+        # Update display
+        self.update_instances_display()
 
-    def on_model_changed(self, new_model: str):
-        """Handle model name changes"""
-        self.config_manager.set('model', new_model)
-
-    def show_model_menu(self):
-        """Show quick selection menu for common models"""
-        menu = QMenu(self)
-        models = [
-            'nvidia/llama-3.1-nemotron-70b-instruct',
-            'gpt-4-0125-preview',
-            'gpt-4-1106-preview',
-            'gpt-4',
-            'gpt-3.5-turbo',
-            'gpt-3.5-turbo-0125'
-        ]
-
-        for model in models:
-            action = menu.addAction(model)
-            action.triggered.connect(lambda checked, m=model: self.model_input.setText(m))
-
-        # Show menu below the dropdown button
-        menu.exec(self.model_dropdown.mapToGlobal(self.model_dropdown.rect().bottomLeft()))
+    def update_instances_display(self):
+        """Update the instances table"""
+        self.instances_table.setRowCount(len(self.instances))
+        for i, (port, instance) in enumerate(self.instances.items()):
+            self.instances_table.setItem(i, 0, QTableWidgetItem(str(port)))
+            self.instances_table.setItem(i, 1, QTableWidgetItem(instance.directory))
+            self.instances_table.setItem(i, 2, QTableWidgetItem(instance.runtime))
+            
+            stop_button = QPushButton('Stop')
+            stop_button.clicked.connect(lambda checked, p=port: self.stop_instance(p))
+            self.instances_table.setCellWidget(i, 3, stop_button)
 
     def browse_directory(self):
         directory = QFileDialog.getExistingDirectory(self, "Select Directory")
         if directory:
-            self.current_directory = directory
-            if directory not in self.recent_paths:
-                self.recent_paths.insert(0, directory)
-                if len(self.recent_paths) > 10:  # Keep only last 10 paths
-                    self.recent_paths.pop()
-                save_recent_paths(self.recent_paths)
-                self.path_combo.clear()
-                self.path_combo.addItems(self.recent_paths)
             self.path_combo.setCurrentText(directory)
+            self.config.add_recent_path(directory)
 
-    def toggle_streamlit(self):
-        if not self.is_running:
-            self.start_streamlit()
-        else:
-            self.stop_streamlit()
+    def on_instance_started(self, port):
+        webbrowser.open(f'http://localhost:{port}')
 
-    def start_streamlit(self):
-        try:
-            self.debug_label.setText('')
+    def on_instance_error(self, port, error):
+        print(f"Error on port {port}: {error}")
+        self.stop_instance(port)
 
-            # Get selected directory
-            selected_directory = self.path_combo.currentText()
-            if not selected_directory or not os.path.exists(selected_directory):
-                self.status_label.setText('Please select a valid directory')
-                self.status_label.setStyleSheet('color: #d32f2f;')
-                return
-
-            # Find available port
-            self.current_port = find_available_port()
-            self.port_label.setText(f'Using port: {self.current_port}')
-
-            self.config_manager.set("directory", selected_directory)
-            self.config_manager.set("port", str(self.current_port))
-
-            self.streamlit_thread = StreamlitThread()
-            self.streamlit_thread.started_successfully.connect(self.on_streamlit_started)
-            self.streamlit_thread.error_occurred.connect(self.on_streamlit_error)
-            self.streamlit_thread.status_update.connect(self.on_status_update)
-            self.streamlit_thread.start()
-
-            self.status_label.setText('Starting Streamlit...')
-            self.status_label.setStyleSheet('color: #1e88e5;')
-            self.launch_button.setText('Stop Streamlit App')
-            self.launch_button.setStyleSheet("""
-                QPushButton {
-                    background-color: #d32f2f;
-                    color: white;
-                    border-radius: 5px;
-                    font-size: 14px;
-                    font-weight: bold;
-                }
-                QPushButton:hover {
-                    background-color: #c62828;
-                }
-                QPushButton:pressed {
-                    background-color: #b71c1c;
-                }
-            """)
-            self.is_running = True
-
-        except Exception as e:
-            error_msg = f"Error in start_streamlit: {str(e)}"
-            log_error(error_msg)
-            self.status_label.setText(error_msg)
-            self.status_label.setStyleSheet('color: #d32f2f;')
-
-    def stop_streamlit(self):
-        if self.streamlit_thread:
-            self.streamlit_thread.stop()
-            self.streamlit_thread.wait()
-            self.streamlit_thread = None
-
-        self.launch_button.setText('Launch Streamlit App')
-        self.launch_button.setStyleSheet("""
-            QPushButton {
-                background-color: #1e88e5;
-                color: white;
-                border-radius: 5px;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #1976d2;
-            }
-            QPushButton:pressed {
-                background-color: #1565c0;
-            }
-        """)
-        self.status_label.setText('Streamlit stopped')
-        self.status_label.setStyleSheet('color: #666;')
-        self.port_label.setText('')
-        self.is_running = False
-
-    def on_streamlit_started(self):
-        self.status_label.setText('Streamlit is running')
-        self.status_label.setStyleSheet('color: #2e7d32;')
-        webbrowser.open(f'http://localhost:{self.current_port}')
-
-    def on_streamlit_error(self, error_message):
-        self.status_label.setText(f'Error: {error_message}')
-        self.status_label.setStyleSheet('color: #d32f2f;')
-        self.stop_streamlit()
+    def stop_instance(self, port):
+        if port in self.instances:
+            self.instances[port].stop()
+            self.instances[port].wait()
+            del self.instances[port]
+            self.update_instances_display()
 
     def closeEvent(self, event):
-        self.stop_streamlit()
+        """Clean up all instances before closing"""
+        for port in list(self.instances.keys()):
+            self.stop_instance(port)
         event.accept()
-
-    def on_status_update(self, message):
-        current_text = self.debug_label.text()
-        self.debug_label.setText(f"{current_text}\n{message}" if current_text else message)
-
 
 def main():
     app = QApplication(sys.argv)
     launcher = StreamlitLauncher()
     launcher.show()
     sys.exit(app.exec())
-
 
 if __name__ == '__main__':
     main()

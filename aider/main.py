@@ -155,35 +155,14 @@ def check_streamlit_install(io):
     )
 
 
-def get_arguments():
-    """Read arguments from the JSON file."""
-    try:
-        if getattr(sys, 'frozen', False):
-            base_path = os.path.dirname(sys.executable)
-            add_path = ['..', 'launcher'] # jump back one folder, and cd launcher folder
-        else:
-            add_path = '..'
-            base_path = os.path.dirname(os.path.abspath(__file__))
-
-        args_file = os.path.join(base_path, *add_path, 'args.json')
-        print(f'[get_arguments] base_path: {base_path}')
-
-        if os.path.exists(args_file):
-            with open(args_file, 'r') as f:
-                return json.load(f)
-    except Exception as e:
-        print(f"Error reading arguments: {str(e)}")
-    return {}
-
-
-def launch_gui(args, json_args):
+def launch_gui(args):
     from streamlit.web import cli
 
     from aider import gui
 
     print()
     print("CONTROL-C to exit...")
-    print(f'[launch_gui] json_args: {json_args}')
+    # print(f'[launch_gui] json_args: {json_args}')
 
     if getattr(sys, 'frozen', False):
         base_path = os.path.join(os.path.dirname(sys.executable), '_internal', 'aider')
@@ -193,7 +172,7 @@ def launch_gui(args, json_args):
     print(f'[app.py] path: {script_path}')
 
     # Set Streamlit configuration
-    os.environ['STREAMLIT_SERVER_PORT'] = str(json_args['port'])
+    os.environ['STREAMLIT_SERVER_PORT'] = os.environ.get('APP_PORT')
     os.environ['STREAMLIT_SERVER_ADDRESS'] = 'localhost'
     os.environ['STREAMLIT_SERVER_HEADLESS'] = 'true'
     os.environ['STREAMLIT_BROWSER_GATHER_USAGE_STATS'] = 'false'
@@ -201,10 +180,10 @@ def launch_gui(args, json_args):
     # Run the Streamlit application directly
     bootstrap.run(script_path, False, [], flag_options={
         'server.address': 'localhost',
-        'server.port': json_args['port'],
+        'server.port': os.environ.get('APP_PORT'),
         'server.headless': True,
         'browser.serverAddress': 'localhost',
-        'browser.serverPort': json_args['port'],
+        'browser.serverPort': os.environ.get('APP_PORT'),
         'server.runOnSave': False,
         'server.enableCORS': False,
         'global.developmentMode': False,
@@ -358,19 +337,19 @@ def sanity_check_repo(repo, io):
 def main(argv=None, input=None, output=None, force_git_root=None, return_coder=False):
     load_dotenv()
     report_uncaught_exceptions()
-    json_args = get_arguments()
+    # json_args = get_arguments()
 
     if argv is None:
         argv = sys.argv[1:]
 
-    path = json_args.get('directory', 'Not Found')
+    path = os.environ.get('APP_DIRECTORY')
     os.chdir(path)
     argv = [
         '--forced-path', path,
-        '--model', json_args.get('model', 'nvidia/Llama-3.1-Nemotron-70B-Instruct'),
+        '--model', os.environ.get('APP_MODEL'),
         '--map-tokens', '1024',
-        '--openai-api-key', json_args.get('api_key', os.getenv("NVIDIA_KEY")),
-        '--openai-api-base', json_args.get('api_base', os.getenv("NVIDIA_BASE")),
+        '--openai-api-key', os.environ.get('APP_API_KEY'),
+        '--openai-api-base', os.environ.get('APP_API_BASE'),
         '--browser',
     ]
     # os.environ["HUGGINGFACE_API_KEY"] = os.getenv("HUGGINGFACE_API_KEY")
@@ -482,7 +461,7 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         # if not check_streamlit_install(io):
         #     return
         print('[***args.gui and not return_coder***]')
-        launch_gui(argv, json_args)
+        launch_gui(argv)
         return
 
     if args.verbose:
