@@ -13,6 +13,7 @@ from aider.io import InputOutput
 from aider.main import main as cli_main
 from aider.scrape import Scraper
 from aider.constants import APP_NAME
+import signal
 
 
 class CaptureIO(InputOutput):
@@ -521,11 +522,13 @@ class GUI:
 
 
 def stop_application():
-    """Function to stop the entire application"""
+    """Stop the application and its parent process"""
     try:
-        print("Writing stop flag and stopping Streamlit...")
-        with open('stop_flag.txt', 'w') as f:
-            f.write('stop')
+        parent_pid = os.getppid()
+        if sys.platform == 'win32':
+            subprocess.run(['taskkill', '/F', '/T', '/PID', str(parent_pid)])
+        else:
+            os.killpg(os.getpgid(parent_pid), signal.SIGTERM)
         st.success("Stopping application...")
         st.stop()
         sys.exit(0)

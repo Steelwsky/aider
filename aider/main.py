@@ -12,7 +12,6 @@ import streamlit.web.bootstrap as bootstrap
 import git
 from dotenv import load_dotenv
 from prompt_toolkit.enums import EditingMode
-
 from aider import __version__, models, utils
 from aider.llama_parse_pdf import parse_pdf
 from aider.args import get_parser
@@ -26,6 +25,7 @@ from aider.repo import ANY_GIT_ERROR, GitRepo
 from aider.report import report_uncaught_exceptions
 from aider.versioncheck import check_version, install_from_main_branch, install_upgrade
 from aider.constants import APP_NAME
+import streamlit as st
 
 # from .dump import dump  # noqa: F401
 
@@ -158,11 +158,7 @@ def check_streamlit_install(io):
 def launch_gui(args):
     from streamlit.web import cli
 
-    from aider import gui
-
-    print()
     print("CONTROL-C to exit...")
-    # print(f'[launch_gui] json_args: {json_args}')
 
     if getattr(sys, 'frozen', False):
         base_path = os.path.join(os.path.dirname(sys.executable), '_internal', 'aider')
@@ -336,13 +332,15 @@ def sanity_check_repo(repo, io):
 
 def main(argv=None, input=None, output=None, force_git_root=None, return_coder=False):
     load_dotenv()
+
     report_uncaught_exceptions()
-    # json_args = get_arguments()
 
     if argv is None:
         argv = sys.argv[1:]
-
-    path = os.environ.get('APP_DIRECTORY')
+    # path = '/Users/steelewski/projects/bunker'
+    # print(f'[MAIN][ARGV] : {argv}')
+    path = st.session_state.directory
+    print(f'PATH BE: {path}')
     os.chdir(path)
     argv = [
         '--forced-path', path,
@@ -352,6 +350,7 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         '--openai-api-base', os.environ.get('APP_API_BASE'),
         '--browser',
     ]
+
     # os.environ["HUGGINGFACE_API_KEY"] = os.getenv("HUGGINGFACE_API_KEY")
     os.environ["HUGGINGFACE_API_KEY"] = "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"
 
@@ -848,7 +847,6 @@ def load_slow_imports(swallow=True):
     except Exception as e:
         if not swallow:
             raise e
-
 
 if __name__ == "__main__":
     status = main()
