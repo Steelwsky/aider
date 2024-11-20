@@ -4,14 +4,14 @@ from PyInstaller.utils.hooks import copy_metadata
 block_cipher = None
 
 datas_a = copy_metadata('streamlit')
-datas = [('/Users/steelewski/projects/aider-forked/aider', 'aider'), ('/Users/steelewski/projects/aider-forked/aienv/lib/python3.11/site-packages/litellm', 'litellm'), ('/Users/steelewski/projects/aider-forked/aienv/lib/python3.11/site-packages/tree_sitter_language_pack', 'tree_sitter_language_pack'), ('/Users/steelewski/projects/aider-forked/aienv/lib/python3.11/site-packages/streamlit', 'streamlit'), ('/Users/steelewski/projects/aider-forked/streamlit_error_8501.log', '.'), ('/Users/steelewski/projects/aider-forked/recent_paths.json', '.'), ('/Users/steelewski/projects/aider-forked/requirements.txt', '.'), ('/Users/steelewski/projects/aider-forked/args.json', '.'), ('/Users/steelewski/projects/aider-forked/streamlit_8501.log', '.'), ('/Users/steelewski/projects/aider-forked/LICENSE.txt', '.')]
+datas = [('/Users/steelewski/projects/aider-forked/aider', 'aider'), ('/Users/steelewski/projects/aider-forked/aienv/lib/python3.11/site-packages/litellm', 'litellm'), ('/Users/steelewski/projects/aider-forked/aienv/lib/python3.11/site-packages/tree_sitter_language_pack', 'tree_sitter_language_pack'), ('/Users/steelewski/projects/aider-forked/aienv/lib/python3.11/site-packages/streamlit', 'streamlit'), ('/Users/steelewski/projects/aider-forked/requirements.txt', '.'), ('/Users/steelewski/projects/aider-forked/LICENSE.txt', '.')]
 datas += copy_metadata('streamlit')
 
 a = Analysis(
     ['entrypoint.py'],
     pathex=[],
     binaries=[],
-    datas=datas_a + [('/Users/steelewski/projects/aider-forked/recent_paths.json', '.'), ('/Users/steelewski/projects/aider-forked/args.json', '.'),],
+    datas=datas_a,
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -69,7 +69,7 @@ exe_b = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,
+    console=False,
     disable_windowed_traceback=False,
     target_arch=None,
     codesign_identity=None,

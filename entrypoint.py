@@ -9,11 +9,10 @@ import webbrowser
 from typing import Dict, Any
 from PyQt6.QtCore import QThread, pyqtSignal, QTimer
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QComboBox, QFileDialog, QGroupBox,
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
+    QPushButton, QLabel, QComboBox, QFileDialog, QGroupBox, 
     QTableWidget, QTableWidgetItem, QHeaderView, QLineEdit, QMenu
 )
-
 
 def find_available_port(start_port=8501):
     """Find the first available port starting from start_port"""
@@ -26,10 +25,8 @@ def find_available_port(start_port=8501):
             except socket.error:
                 port += 1
 
-
 class ConfigManager:
     """Manages configuration storage and retrieval"""
-
     def __init__(self):
         self.base_path = self._get_base_path()
         self.config_file = os.path.join(self.base_path, 'config.json')
@@ -50,7 +47,7 @@ class ConfigManager:
         return {
             'api_key': '',
             'api_base': 'https://integrate.api.nvidia.com/v1',
-            'model': 'openai/nvidia/llama-3.1-nemotron-70b-instruct',
+            'model': 'nvidia/llama-3.1-nemotron-70b-instruct',
             'recent_paths': [],
             'instances': {}
         }
@@ -76,7 +73,6 @@ class ConfigManager:
         recent.insert(0, path)
         self.config['recent_paths'] = recent[:10]  # Keep only 10 most recent
         self.save()
-
 
 class StreamlitThread(QThread):
     """Handles running a Streamlit instance"""
@@ -109,11 +105,10 @@ class StreamlitThread(QThread):
 
             # Determine the correct path for the Streamlit executable
             if getattr(sys, 'frozen', False):
-                base_path = os.path.abspath(os.path.join(
-                    os.path.dirname(sys.executable), '..', 'vai'))
+                base_path = os.path.abspath(os.path.join(os.path.dirname(sys.executable), '..', 'vai'))
             else:
                 base_path = os.path.dirname(os.path.abspath(__file__))
-
+            
             streamlit_exe = os.path.join(base_path, 'ai.exe' if sys.platform == 'win32' else 'ai')
 
             # Start the process
@@ -153,45 +148,42 @@ class StreamlitThread(QThread):
             self.process = None
         self._is_running = False
 
-    @property
-    def runtime(self):
-        """Get formatted runtime duration"""
-        duration = int(time.time() - self.start_time)
-        hours = duration // 3600
-        minutes = (duration % 3600) // 60
-        seconds = duration % 60
-        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-
-
 class StreamlitLauncher(QMainWindow):
     """Main application window"""
-
     def __init__(self):
         super().__init__()
         self.config = ConfigManager()
-        self.current_instance = None
+        self.instances: Dict[int, StreamlitThread] = {}
         self.initUI()
-
+        
     def initUI(self):
-        self.setWindowTitle('Streamlit Launcher')
-        self.setFixedSize(600, 400)
+        self.setWindowTitle('Streamlit Multi-Instance Launcher')
+        self.setFixedSize(600, 700)
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
 
+        # Directory selection
         self.setup_directory_section(layout)
+        
+        # API configuration
         self.setup_api_section(layout)
-        self.setup_launch_section(layout)
+        
+        # Instances table
+        # self.setup_instances_table(layout)
+        
+        # Launch button
+        self.setup_launch_button(layout)
 
     def setup_directory_section(self, layout):
         self.path_combo = QComboBox()
         self.path_combo.setEditable(True)
         self.path_combo.addItems(self.config.get('recent_paths', []))
-
+        
         browse_button = QPushButton('Browse')
         browse_button.clicked.connect(self.browse_directory)
-
+        
         dir_layout = QHBoxLayout()
         dir_layout.addWidget(self.path_combo)
         dir_layout.addWidget(browse_button)
@@ -201,15 +193,18 @@ class StreamlitLauncher(QMainWindow):
         api_group = QGroupBox("API Configuration")
         api_layout = QVBoxLayout()
 
+        # API Key
         self.api_key_input = QLineEdit(self.config.get('api_key', ''))
         self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
         api_layout.addWidget(QLabel('API Key:'))
         api_layout.addWidget(self.api_key_input)
 
+        # API Base
         self.api_base_input = QLineEdit(self.config.get('api_base', ''))
         api_layout.addWidget(QLabel('API Base:'))
         api_layout.addWidget(self.api_base_input)
 
+        # Model
         self.model_input = QLineEdit(self.config.get('model', ''))
         api_layout.addWidget(QLabel('Model:'))
         api_layout.addWidget(self.model_input)
@@ -217,64 +212,37 @@ class StreamlitLauncher(QMainWindow):
         api_group.setLayout(api_layout)
         layout.addWidget(api_group)
 
-    def setup_launch_section(self, layout):
-        launch_layout = QHBoxLayout()
+    def setup_launch_button(self, layout):
+        launch_button = QPushButton('Launch New Instance')
+        launch_button.clicked.connect(self.launch_new_instance)
+        layout.addWidget(launch_button)
 
-        self.launch_button = QPushButton('Launch')
-        self.launch_button.clicked.connect(self.launch_instance)
-
-        self.stop_button = QPushButton('Stop')
-        self.stop_button.clicked.connect(self.stop_instance)
-        self.stop_button.setEnabled(False)
-
-        launch_layout.addWidget(self.launch_button)
-        launch_layout.addWidget(self.stop_button)
-        layout.addLayout(launch_layout)
-
-    def launch_instance(self):
-        if self.current_instance:
-            return
-
+    def launch_new_instance(self):
         directory = self.path_combo.currentText()
         if not directory or not os.path.exists(directory):
             return
-
-        self.config.set('api_key', self.api_key_input.text())
-        self.config.set('api_base', self.api_base_input.text())
-        self.config.set('model', self.model_input.text())
+        
+        # Save directory to recent paths
         self.config.add_recent_path(directory)
-
+        
+        # Find available port and create new instance
         port = find_available_port()
-
-        self.current_instance = StreamlitThread(
+        thread = StreamlitThread(
             port=port,
             directory=directory,
             api_key=self.api_key_input.text(),
             api_base=self.api_base_input.text(),
             model=self.model_input.text()
         )
-
-        self.current_instance.started_successfully.connect(lambda: self.on_instance_started(port))
-        self.current_instance.error_occurred.connect(self.on_instance_error)
-        self.current_instance.start()
-
-        self.launch_button.setEnabled(False)
-        self.stop_button.setEnabled(True)
-
-    def stop_instance(self):
-        if self.current_instance:
-            self.current_instance.stop()
-            self.current_instance.wait()
-            self.current_instance = None
-            self.launch_button.setEnabled(True)
-            self.stop_button.setEnabled(False)
-
-    def on_instance_started(self, port):
-        webbrowser.open(f'http://localhost:{port}')
-
-    def on_instance_error(self, error):
-        print(f"Error: {error}")
-        self.stop_instance()
+        
+        # Connect signals
+        thread.started_successfully.connect(lambda: self.on_instance_started(port))
+        thread.error_occurred.connect(lambda msg: self.on_instance_error(port, msg))
+        
+        # Store and start instance
+        self.instances[port] = thread
+        thread.start()
+    
 
     def browse_directory(self):
         directory = QFileDialog.getExistingDirectory(self, "Select Directory")
@@ -282,18 +250,31 @@ class StreamlitLauncher(QMainWindow):
             self.path_combo.setCurrentText(directory)
             self.config.add_recent_path(directory)
 
-    def closeEvent(self, event):
-        if self.current_instance:
-            self.stop_instance()
-        event.accept()
+    def on_instance_started(self, port):
+        webbrowser.open(f'http://localhost:{port}')
 
+    def on_instance_error(self, port, error):
+        print(f"Error on port {port}: {error}")
+        self.stop_instance(port)
+
+    def stop_instance(self, port):
+        if port in self.instances:
+            self.instances[port].stop()
+            self.instances[port].wait()
+            del self.instances[port]
+            self.update_instances_display()
+
+    def closeEvent(self, event):
+        """Clean up all instances before closing"""
+        for port in list(self.instances.keys()):
+            self.stop_instance(port)
+        event.accept()
 
 def main():
     app = QApplication(sys.argv)
     launcher = StreamlitLauncher()
     launcher.show()
     sys.exit(app.exec())
-
 
 if __name__ == '__main__':
     main()
