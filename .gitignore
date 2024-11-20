@@ -14,5 +14,4 @@ aienv/
 .env
 aider/__version__.py
 .venv/
-*.spec
 history.json
