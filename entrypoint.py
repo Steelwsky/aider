@@ -47,7 +47,7 @@ class ConfigManager:
         return {
             'api_key': '',
             'api_base': 'https://integrate.api.nvidia.com/v1',
-            'model': 'nvidia/llama-3.1-nemotron-70b-instruct',
+            'model': 'openai/nvidia/llama-3.1-nemotron-70b-instruct',
             'recent_paths': [],
             'instances': {}
         }
