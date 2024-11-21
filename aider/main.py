@@ -338,8 +338,8 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
     if argv is None:
         argv = sys.argv[1:]
     # path = '/Users/steelewski/projects/bunker'
-    # print(f'[MAIN][ARGV] : {argv}')
-    path = st.session_state.directory
+    # os.environ["APP_PORT"] = "8501"
+    path = os.environ.get('APP_DIRECTORY')
     print(f'PATH BE: {path}')
     os.chdir(path)
     argv = [
@@ -349,7 +349,7 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         '--openai-api-key', os.environ.get('APP_API_KEY'),
         '--openai-api-base', os.environ.get('APP_API_BASE'),
         '--browser',
-    ]
+    ]  
 
     # os.environ["HUGGINGFACE_API_KEY"] = os.getenv("HUGGINGFACE_API_KEY")
     os.environ["HUGGINGFACE_API_KEY"] = "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"

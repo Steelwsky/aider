@@ -153,27 +153,20 @@ class StreamlitLauncher(QMainWindow):
     def __init__(self):
         super().__init__()
         self.config = ConfigManager()
-        self.instances: Dict[int, StreamlitThread] = {}
+        # self.instances: Dict[int, StreamlitThread] = {}
+        self.current_instance = None
         self.initUI()
         
     def initUI(self):
         self.setWindowTitle('Streamlit Multi-Instance Launcher')
-        self.setFixedSize(600, 700)
+        self.setFixedSize(500, 400)
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
 
-        # Directory selection
         self.setup_directory_section(layout)
-        
-        # API configuration
         self.setup_api_section(layout)
-        
-        # Instances table
-        # self.setup_instances_table(layout)
-        
-        # Launch button
         self.setup_launch_button(layout)
 
     def setup_directory_section(self, layout):
@@ -213,19 +206,22 @@ class StreamlitLauncher(QMainWindow):
         layout.addWidget(api_group)
 
     def setup_launch_button(self, layout):
-        launch_button = QPushButton('Launch New Instance')
-        launch_button.clicked.connect(self.launch_new_instance)
-        layout.addWidget(launch_button)
+        self.launch_button = QPushButton('Launch Instance')
+        self.launch_button.clicked.connect(self.toggle_instance)
+        layout.addWidget(self.launch_button)
+        
+    def toggle_instance(self):
+        if self.current_instance is None:
+            self.launch_new_instance()
+        else:
+            self.stop_instance()
 
     def launch_new_instance(self):
         directory = self.path_combo.currentText()
         if not directory or not os.path.exists(directory):
             return
         
-        # Save directory to recent paths
         self.config.add_recent_path(directory)
-        
-        # Find available port and create new instance
         port = find_available_port()
         thread = StreamlitThread(
             port=port,
@@ -235,13 +231,12 @@ class StreamlitLauncher(QMainWindow):
             model=self.model_input.text()
         )
         
-        # Connect signals
         thread.started_successfully.connect(lambda: self.on_instance_started(port))
-        thread.error_occurred.connect(lambda msg: self.on_instance_error(port, msg))
+        thread.error_occurred.connect(self.on_instance_error)
         
-        # Store and start instance
-        self.instances[port] = thread
+        self.current_instance = thread
         thread.start()
+        self.launch_button.setText('Stop Instance')
     
 
     def browse_directory(self):
@@ -253,21 +248,24 @@ class StreamlitLauncher(QMainWindow):
     def on_instance_started(self, port):
         webbrowser.open(f'http://localhost:{port}')
 
-    def on_instance_error(self, port, error):
-        print(f"Error on port {port}: {error}")
-        self.stop_instance(port)
+    # def on_instance_error(self, port, error):
+    #     print(f"Error on port {port}: {error}")
+    #     self.stop_instance(port)
 
-    def stop_instance(self, port):
-        if port in self.instances:
-            self.instances[port].stop()
-            self.instances[port].wait()
-            del self.instances[port]
-            self.update_instances_display()
+    def stop_instance(self):
+        if self.current_instance:
+            self.current_instance.stop()
+            self.current_instance.wait()
+            self.current_instance = None
+            self.launch_button.setText('Launch Instance')
 
+    def on_instance_error(self, error):
+        print(f"Error: {error}")
+        self.stop_instance()
+        
     def closeEvent(self, event):
-        """Clean up all instances before closing"""
-        for port in list(self.instances.keys()):
-            self.stop_instance(port)
+        if self.current_instance:
+            self.stop_instance()
         event.accept()
 
 def main():
