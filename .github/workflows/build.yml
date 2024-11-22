@@ -1,4 +1,4 @@
-name: Archive release
+name: Cross-Platform Release
 
 on:
   workflow_dispatch:
@@ -11,124 +11,105 @@ on:
 jobs:
   build:
     strategy:
-      fail-fast: false
       matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: macos-latest
-            platform: macos-arm64
-            python-version: '3.9'
-            architecture: arm64
+            platform: macos-x64
           - os: macos-latest
-            platform: macos-intel
-            python-version: '3.9'
-            architecture: x86_64
-          - os: ubuntu-22.04
-            platform: linux
-            python-version: '3.9'
-            architecture: x86_64
+            platform: macos-arm64
+          - os: ubuntu-latest
+            platform: linux-x64
           - os: windows-latest
-            platform: windows
-            python-version: '3.9'
-            architecture: x86_64
+            platform: windows-x64
+    
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
+    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - uses: actions/setup-python@v5
       with:
-        python-version: ${{ matrix.python-version }}
-        architecture: ${{ matrix.architecture }}
+        python-version: '3.11'
 
-    - name: Install dependencies (Linux)
-      if: matrix.os == 'ubuntu-22.04'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+      shell: bash
+
+    - name: Install UPX (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
         sudo apt-get install -y upx-ucl
-        python -m pip install --upgrade pip wheel setuptools
-        pip install -r requirements.txt
-        pip install pyinstaller
 
-    - name: Install dependencies (macOS/Windows)
-      if: matrix.os != 'ubuntu-22.04'
+    - name: Install UPX (macOS)
+      if: matrix.os == 'macos-latest'
       run: |
-        python -m pip install --upgrade pip wheel setuptools
-        pip install -r requirements.txt
-        pip install pyinstaller
+        brew install upx
 
-    - name: Build with PyInstaller (macOS)
-      if: startsWith(matrix.platform, 'macos')
-      run: |
-        ARCHFLAGS="-arch ${{ matrix.architecture }}" python -m PyInstaller vai.spec
-        # Verify architecture of binary
-        file dist/launcher/launch
-
-    - name: Build with PyInstaller (Linux)
-      if: matrix.os == 'ubuntu-22.04'
-      run: |
-        python -m PyInstaller vai.spec
-        file dist/launcher/launch
-
-    - name: Build with PyInstaller (Windows)
+    - name: Install UPX (Windows)
       if: matrix.os == 'windows-latest'
       run: |
-        python -m PyInstaller vai.spec
+        choco install upx
 
-    - name: Archive PyInstaller output
+    - name: Build with PyInstaller
+      run: |
+        python -m PyInstaller vai.spec
       shell: bash
+
+    - name: Archive output
       run: |
         cd dist
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          7z a ../vai-dist-${{ matrix.platform }}.zip *
+        if [ "${{ matrix.os }}" == "windows-latest" ]; then
+          7z a ../vai-${{ matrix.platform }}.zip *
         else
-          tar -czf ../vai-dist-${{ matrix.platform }}.tar.gz *
+          tar -czf ../vai-${{ matrix.platform }}.tar.gz *
         fi
         cd ..
+      shell: bash
 
     - name: Upload artifact
+      if: github.ref == 'refs/heads/dev-browser'
       uses: actions/upload-artifact@v3
       with:
-        name: vai-dist-${{ matrix.platform }}
-        path: |
-          vai-dist-${{ matrix.platform }}.tar.gz
-          vai-dist-${{ matrix.platform }}.zip
+        name: vai-${{ matrix.platform }}
+        path: vai-${{ matrix.platform }}.*
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/tags/latest'
-    steps:
-    - name: Download all artifacts
-      uses: actions/download-artifact@v3
-
-    - name: Prepare release files
+    - name: Delete existing release
+      if: github.ref == 'refs/tags/latest'
       run: |
-        mkdir release-files
-        find . -name "vai-dist-*.tar.gz" -o -name "vai-dist-*.zip" -exec cp {} release-files/ \;
+        gh release delete latest --yes || true
+        git push origin :latest || true
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      shell: bash
 
-    - name: Create Release
+    - name: Create/Update Release
+      if: github.ref == 'refs/tags/latest'
       uses: softprops/action-gh-release@v1
       with:
-        files: release-files/*
+        files: vai-${{ matrix.platform }}.*
         tag_name: latest
         name: Latest Release
         body: |
-          This is the latest multi-platform build of the application.
+          Latest build for ${{ matrix.platform }}
           Built on: ${{ github.event.head_commit.timestamp }}
-          
-          Available platforms:
-          - macOS (Apple Silicon/ARM64)
-          - macOS (Intel/x86_64)
-          - Linux (x86_64)
-          - Windows (x86_64)
-          
-          Python version: 3.9
         draft: false
         prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Update latest tag
+      if: github.ref == 'refs/heads/dev-browser'
+      run: |
+        git tag -f latest
+        git push -f origin latest
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
