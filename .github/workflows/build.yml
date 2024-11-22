@@ -18,13 +18,13 @@ jobs:
             architecture: arm64
           - os: macos-latest
             platform: macos-intel
-            architecture: x86_64
+            architecture: x64
           - os: ubuntu-latest
             platform: linux
-            architecture: x86_64
+            architecture: x64
           - os: windows-latest
             platform: windows
-            architecture: x86_64
+            architecture: x64
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
