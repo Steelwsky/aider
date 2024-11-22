@@ -11,20 +11,25 @@ on:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-latest
             platform: macos-arm64
+            python-version: '3.9'
             architecture: arm64
           - os: macos-latest
             platform: macos-intel
-            architecture: x64
-          - os: ubuntu-latest
+            python-version: '3.9'
+            architecture: x86_64
+          - os: ubuntu-22.04
             platform: linux
-            architecture: x64
+            python-version: '3.9'
+            architecture: x86_64
           - os: windows-latest
             platform: windows
-            architecture: x64
+            python-version: '3.9'
+            architecture: x86_64
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
@@ -37,22 +42,22 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: ${{ matrix.python-version }}
         architecture: ${{ matrix.architecture }}
 
     - name: Install dependencies (Linux)
-      if: matrix.os == 'ubuntu-latest'
+      if: matrix.os == 'ubuntu-22.04'
       run: |
         sudo apt-get update
         sudo apt-get install -y upx-ucl
-        python -m pip install --upgrade pip
+        python -m pip install --upgrade pip wheel setuptools
         pip install -r requirements.txt
         pip install pyinstaller
 
     - name: Install dependencies (macOS/Windows)
-      if: matrix.os != 'ubuntu-latest'
+      if: matrix.os != 'ubuntu-22.04'
       run: |
-        python -m pip install --upgrade pip
+        python -m pip install --upgrade pip wheel setuptools
         pip install -r requirements.txt
         pip install pyinstaller
 
@@ -61,24 +66,37 @@ jobs:
       run: |
         ARCHFLAGS="-arch ${{ matrix.architecture }}" python -m PyInstaller vai.spec
         # Verify architecture of binary
-        lipo -info dist/launcher/launch
+        file dist/launcher/launch
 
-    - name: Build with PyInstaller (non-macOS)
-      if: "!startsWith(matrix.platform, 'macos')"
-      run: python -m PyInstaller vai.spec
+    - name: Build with PyInstaller (Linux)
+      if: matrix.os == 'ubuntu-22.04'
+      run: |
+        python -m PyInstaller vai.spec
+        file dist/launcher/launch
+
+    - name: Build with PyInstaller (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        python -m PyInstaller vai.spec
 
     - name: Archive PyInstaller output
       shell: bash
       run: |
         cd dist
-        tar -czf ../vai-dist-${{ matrix.platform }}.tar.gz *
+        if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          7z a ../vai-dist-${{ matrix.platform }}.zip *
+        else
+          tar -czf ../vai-dist-${{ matrix.platform }}.tar.gz *
+        fi
         cd ..
 
     - name: Upload artifact
       uses: actions/upload-artifact@v3
       with:
         name: vai-dist-${{ matrix.platform }}
-        path: vai-dist-${{ matrix.platform }}.tar.gz
+        path: |
+          vai-dist-${{ matrix.platform }}.tar.gz
+          vai-dist-${{ matrix.platform }}.zip
 
   release:
     needs: build
@@ -88,13 +106,10 @@ jobs:
     - name: Download all artifacts
       uses: actions/download-artifact@v3
 
-    - name: List downloaded artifacts
-      run: ls -R
-
     - name: Prepare release files
       run: |
         mkdir release-files
-        cp vai-dist-*/vai-dist-*.tar.gz release-files/
+        find . -name "vai-dist-*.tar.gz" -o -name "vai-dist-*.zip" -exec cp {} release-files/ \;
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
@@ -111,6 +126,8 @@ jobs:
           - macOS (Intel/x86_64)
           - Linux (x86_64)
           - Windows (x86_64)
+          
+          Python version: 3.9
         draft: false
         prerelease: false
       env:
