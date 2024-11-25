@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import copy_metadata
+from PyInstaller.utils.hooks import copy_metadata, collect_data_files
 import os
 
 block_cipher = None
@@ -13,7 +13,10 @@ datas = [
     ('requirements.txt', '.'),
     ('LICENSE.txt', '.')
 ]
+certs = collect_data_files('certifi')
 datas += copy_metadata('streamlit')
+datas += certs
+datas_a += certs
 
 a = Analysis(
     ['entrypoint.py'],
