@@ -93,7 +93,6 @@ class StreamlitThread(QThread):
 
     def run(self):
         try:
-            # Set up environment variables
             env = os.environ.copy()
             env.update({
                 'APP_PORT': str(self.port),
@@ -103,15 +102,13 @@ class StreamlitThread(QThread):
                 'APP_DIRECTORY': self.directory
             })
 
-            # Determine the correct path for the Streamlit executable
             if getattr(sys, 'frozen', False):
                 base_path = os.path.abspath(os.path.join(os.path.dirname(sys.executable), '..', 'vai'))
             else:
-                base_path = os.path.dirname(os.path.abspath(__file__))
+                base_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dist', 'vai')
             
             streamlit_exe = os.path.join(base_path, 'ai.exe' if sys.platform == 'win32' else 'ai')
 
-            # Start the process
             creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == 'win32' else 0
             self.process = subprocess.Popen(
                 [streamlit_exe],
@@ -119,20 +116,22 @@ class StreamlitThread(QThread):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                creationflags=creation_flags
+                creationflags=creation_flags,
+                preexec_fn=None if sys.platform == 'win32' else os.setsid
             )
 
             self._is_running = True
             self.started_successfully.emit()
 
-            # Monitor the process
             while self._is_running and self.process.poll() is None:
-                stdout = self.process.stdout.readline()
-                if stdout:
-                    self.status_update.emit(stdout.strip())
-                stderr = self.process.stderr.readline()
-                if stderr:
-                    self.status_update.emit(f"Error: {stderr.strip()}")
+                if self.process.stdout:
+                    stdout = self.process.stdout.readline()
+                    if stdout:
+                        self.status_update.emit(stdout.strip())
+                if self.process.stderr:
+                    stderr = self.process.stderr.readline()
+                    if stderr:
+                        self.status_update.emit(f"Error: {stderr.strip()}")
 
         except Exception as e:
             self.error_occurred.emit(str(e))
@@ -141,12 +140,18 @@ class StreamlitThread(QThread):
 
     def stop(self):
         if self.process:
-            if sys.platform == 'win32':
-                subprocess.run(['taskkill', '/F', '/T', '/PID', str(self.process.pid)])
-            else:
-                os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
-            self.process = None
+            try:
+                if sys.platform == 'win32':
+                    self.process.terminate()
+                    # Give it some time to terminate gracefully
+                    QTimer.singleShot(1000, lambda: subprocess.run(['taskkill', '/F', '/T', '/PID', str(self.process.pid)]) if self.process else None)
+                else:
+                    os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+                self.process = None
+            except Exception as e:
+                print(f"Error stopping process: {e}")
         self._is_running = False
+        self.quit()
 
 class StreamlitLauncher(QMainWindow):
     """Main application window"""
@@ -255,7 +260,6 @@ class StreamlitLauncher(QMainWindow):
     def stop_instance(self):
         if self.current_instance:
             self.current_instance.stop()
-            self.current_instance.wait()
             self.current_instance = None
             self.launch_button.setText('Launch Instance')
 
