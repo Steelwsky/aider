@@ -19,9 +19,6 @@ jobs:
           - os: macos-latest
             platform: macos-arm64 
             target_arch: arm64
-          - os: ubuntu-latest
-            platform: linux-x64
-            target_arch: x86_64
           - os: windows-latest
             platform: windows-x64
             target_arch: x86_64
@@ -45,12 +42,6 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
       shell: bash
-
-    - name: Install UPX (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y upx-ucl
 
     - name: Install UPX (macOS)
       if: matrix.os == 'macos-latest'
@@ -79,10 +70,9 @@ jobs:
         else
           tar -czf ../vai-${{ matrix.platform }}.tar.gz *
         fi
-        cd ..
       shell: bash
 
-    - name: Upload artifact
+    - name: Upload artifacts
       if: github.ref == 'refs/heads/dev-browser'
       uses: actions/upload-artifact@v3
       with:
@@ -96,7 +86,6 @@ jobs:
         git push origin :latest || true
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      shell: bash
 
     - name: Create/Update Release
       if: github.ref == 'refs/tags/latest'

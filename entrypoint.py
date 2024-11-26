@@ -7,7 +7,6 @@ import socket
 import subprocess
 import webbrowser
 import psutil
-from typing import Dict, Any
 from PyQt6.QtCore import QThread, pyqtSignal, QTimer
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -69,8 +68,7 @@ class ConfigManager:
             'api_key': '',
             'api_base': 'https://integrate.api.nvidia.com/v1',
             'model': 'openai/nvidia/llama-3.1-nemotron-70b-instruct',
-            'recent_paths': [],
-            'instances': {}
+            'recent_paths': []
         }
 
     def save(self):
@@ -184,7 +182,6 @@ class StreamlitLauncher(QMainWindow):
     def __init__(self):
         super().__init__()
         self.config = ConfigManager()
-        # self.instances: Dict[int, StreamlitThread] = {}
         self.current_instance = None
         self.initUI()
 
@@ -256,6 +253,10 @@ class StreamlitLauncher(QMainWindow):
             return
 
         self.config.add_recent_path(directory)
+        self.config.set('api_key', self.api_key_input.text())
+        self.config.set('api_base', self.api_base_input.text())
+        self.config.set('model', self.model_input.text())
+
         port = find_available_port()
         thread = StreamlitThread(
             port=port,
@@ -289,10 +290,6 @@ class StreamlitLauncher(QMainWindow):
             self.launch_button.setEnabled(True),
             self.launch_button.setText('Stop Instance')
         ))
-
-    # def on_instance_error(self, port, error):
-    #     print(f"Error on port {port}: {error}")
-    #     self.stop_instance(port)
 
     def stop_instance(self):
         if self.current_instance:
