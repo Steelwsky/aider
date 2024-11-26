@@ -1,8 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
-from PyInstaller.utils.hooks import copy_metadata, collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 import os
+import ssl
+import certifi
 
 block_cipher = None
+cert_datas = [
+    (certifi.where(), 'certifi'),
+    (os.path.dirname(certifi.where()), os.path.join('certifi', '_ssl_certs')),
+]
 
 datas_a = copy_metadata('streamlit')
 datas = [
@@ -13,10 +19,9 @@ datas = [
     ('requirements.txt', '.'),
     ('LICENSE.txt', '.')
 ]
-certs = collect_data_files('certifi')
+
 datas += copy_metadata('streamlit')
-datas += certs
-datas_a += certs
+datas += cert_datas
 
 a = Analysis(
     ['entrypoint.py'],
@@ -39,7 +44,7 @@ b = Analysis(
     pathex=[],
     binaries=[],
     datas=datas,
-    hiddenimports=['prompt-toolkit', 'tiktoken_ext', 'tiktoken_ext.openai_public', 'streamlit.web.cli', 
+    hiddenimports=['certifi', 'ssl', 'prompt-toolkit', 'tiktoken_ext', 'tiktoken_ext.openai_public', 'streamlit.web.cli', 
                    'streamlit.runtime.scriptrunner.magic_funcs', 'tiktoken_ext.openai_public', '_yaml', 'dnspython', 
                    'GitPython', 'fastapi_cli', 'prompt-toolkit', 'tree_sitter_embedded_template', 
                    '__editable___aider_chat_0_58_2_dev48_gfe87e4bc_finder', 'toml', 'PyQt6_Qt6', 'brotli', 
@@ -86,7 +91,7 @@ b = Analysis(
                    'PIL.PngImagePlugin', 'PIL.JpegImagePlugin', 'PIL.Image'],
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=['ssl_hook.py'],
     excludes=[],
     noarchive=True,
     optimize=0,
