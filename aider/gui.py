@@ -14,6 +14,7 @@ from aider.main import main as cli_main
 from aider.scrape import Scraper
 from aider.constants import APP_NAME
 import signal
+import psutil
 
 
 class CaptureIO(InputOutput):
@@ -91,6 +92,44 @@ def get_coder():
     return coder
 
 
+def release_port(port):
+    """Release the specified port by killing any process using it"""
+    try:
+        for proc in psutil.process_iter(['pid', 'connections']):
+            try:
+                connections = proc.net_connections()
+                for conn in connections:
+                    if conn.laddr.port == port:
+                        if sys.platform == 'win32':
+                            os.kill(proc.pid, signal.SIGTERM)
+                        else:
+                            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+    except Exception as e:
+        print(f"Error releasing port {port}: {e}")
+
+
+def stop_application():
+    """Stop the application and its parent process"""
+    try:
+        port = int(os.environ.get('APP_PORT', 0))
+        if port:
+            release_port(port)
+
+        parent_pid = os.getppid()
+        if sys.platform == 'win32':
+            subprocess.run(['taskkill', '/F', '/T', '/PID', str(parent_pid)])
+        else:
+            os.killpg(os.getpgid(parent_pid), signal.SIGTERM)
+
+        st.success("Stopping application...")
+        st.stop()
+        sys.exit(0)
+    except Exception as e:
+        st.error(f"Error stopping application: {e}")
+
+
 class GUI:
     prompt = None
     prompt_as = "user"
@@ -150,8 +189,9 @@ class GUI:
 
     def do_sidebar(self):
         with st.sidebar:
-            if st.button(f"Stop {APP_NAME}", type="primary"):
-                stop_application()
+            # if st.button(f"Stop {APP_NAME}", type="primary"):
+            #     stop_application()
+            st.text("To stop use Launcher's Stop Instance button")
 
             st.title(APP_NAME)
             self.show_abs_path()
@@ -164,7 +204,6 @@ class GUI:
 
     def do_recommended_actions(self):
         text = f"{APP_NAME} works best when your code is stored in a git repo.  \n"
-        # text += f"[See the FAQ for more info]({urls.git})"
 
         with st.expander("Recommended actions", expanded=True):
             with st.popover("Create a git repo to track changes"):
