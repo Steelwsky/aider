@@ -1,0 +1,2 @@
+[console_scripts]
+vai = aider.main:main

@@ -57,7 +57,6 @@ jobs:
       with:
         name: vai-${{ matrix.platform }}
         path: aihelper
-        compression-level: 9
 
     - name: Delete existing release
       if: github.ref == 'refs/tags/latest'
