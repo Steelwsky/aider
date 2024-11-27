@@ -46,18 +46,12 @@ jobs:
         ARCHFLAGS="-arch ${{ matrix.target_arch }}" python -m PyInstaller vai.spec
       shell: bash
 
-    - name: Archive output
-      run: |
-        cd dist
-        zip -r ../vai-${{ matrix.platform }}.zip *
-      shell: bash
-
     - name: Upload artifacts
       if: github.ref == 'refs/heads/dev-browser'
       uses: actions/upload-artifact@v3
       with:
         name: vai-${{ matrix.platform }}
-        path: vai-${{ matrix.platform }}.zip
+        path: dist/*
 
     - name: Delete existing release
       if: github.ref == 'refs/tags/latest'
@@ -66,6 +60,13 @@ jobs:
         git push origin :latest || true
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create ZIP for Release
+      if: github.ref == 'refs/tags/latest'
+      run: |
+        cd dist
+        zip -r ../vai-${{ matrix.platform }}.zip *
+      shell: bash
 
     - name: Create/Update Release
       if: github.ref == 'refs/tags/latest'
