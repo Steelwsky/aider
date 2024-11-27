@@ -43,7 +43,12 @@ jobs:
 
     - name: Build with PyInstaller
       run: |
-        ARCHFLAGS="-arch ${{ matrix.target_arch }}" python -m PyInstaller vai.spec
+        ARCHFLAGS="-arch ${{ matrix.target_arch }}" python -m PyInstaller vai.spec --upx-opts="--best --lzma"
+      shell: bash
+
+    - name: Rename dist folder
+      run: |
+        mv dist aihelper
       shell: bash
 
     - name: Upload artifacts
@@ -51,7 +56,8 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: vai-${{ matrix.platform }}
-        path: dist/*
+        path: aihelper
+        compression-level: 9
 
     - name: Delete existing release
       if: github.ref == 'refs/tags/latest'
@@ -64,8 +70,7 @@ jobs:
     - name: Create ZIP for Release
       if: github.ref == 'refs/tags/latest'
       run: |
-        cd dist
-        zip -r ../vai-${{ matrix.platform }}.zip *
+        zip -9r vai-${{ matrix.platform }}.zip aihelper
       shell: bash
 
     - name: Create/Update Release
