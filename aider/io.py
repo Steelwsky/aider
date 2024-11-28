@@ -1,8 +1,11 @@
 import base64
 import os
+import time
+import webbrowser
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
+from io import StringIO
 from pathlib import Path
 
 from prompt_toolkit.completion import Completer, Completion, ThreadedCompleter
@@ -15,6 +18,7 @@ from prompt_toolkit.shortcuts import CompleteStyle, PromptSession
 from prompt_toolkit.styles import Style
 from pygments.lexers import MarkdownLexer, guess_lexer_for_filename
 from pygments.token import Token
+from rich.columns import Columns
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.style import Style as RichStyle
@@ -193,7 +197,9 @@ class InputOutput:
         dry_run=False,
         llm_history_file=None,
         editingmode=EditingMode.EMACS,
+        fancy_input=True,
     ):
+        self.placeholder = None
         self.never_prompts = set()
         self.editingmode = editingmode
         no_color = os.environ.get("NO_COLOR")
@@ -235,15 +241,16 @@ class InputOutput:
         self.append_chat_history(f"\n# {APP_NAME} chat started at {current_time}\n\n")
 
         self.prompt_session = None
-        if self.pretty:
+        if fancy_input:
             # Initialize PromptSession
             session_kwargs = {
                 "input": self.input,
                 "output": self.output,
                 "lexer": PygmentsLexer(MarkdownLexer),
                 "editing_mode": self.editingmode,
-                "cursor": ModalCursorShapeConfig(),
             }
+            if self.editingmode == EditingMode.VI:
+                session_kwargs["cursor"] = ModalCursorShapeConfig()
             if self.input_history_file is not None:
                 session_kwargs["history"] = FileHistory(self.input_history_file)
             try:
@@ -329,14 +336,36 @@ class InputOutput:
             self.tool_error("Use --encoding to set the unicode encoding.")
             return
 
-    def write_text(self, filename, content):
+    def write_text(self, filename, content, max_retries=5, initial_delay=0.1):
+        """
+        Writes content to a file, retrying with progressive backoff if the file is locked.
+
+        :param filename: Path to the file to write.
+        :param content: Content to write to the file.
+        :param max_retries: Maximum number of retries if a file lock is encountered.
+        :param initial_delay: Initial delay (in seconds) before the first retry.
+        """
         if self.dry_run:
             return
-        try:
-            with open(str(filename), "w", encoding=self.encoding) as f:
-                f.write(content)
-        except OSError as err:
-            self.tool_error(f"Unable to write file {filename}: {err}")
+
+        delay = initial_delay
+        for attempt in range(max_retries):
+            try:
+                with open(str(filename), "w", encoding=self.encoding) as f:
+                    f.write(content)
+                return  # Successfully wrote the file
+            except PermissionError as err:
+                if attempt < max_retries - 1:
+                    time.sleep(delay)
+                    delay *= 2  # Exponential backoff
+                else:
+                    self.tool_error(
+                        f"Unable to write file {filename} after {max_retries} attempts: {err}"
+                    )
+                    raise
+            except OSError as err:
+                self.tool_error(f"Unable to write file {filename}: {err}")
+                raise
 
     def rule(self):
         if self.pretty:
@@ -359,7 +388,10 @@ class InputOutput:
         rel_fnames = list(rel_fnames)
         show = ""
         if rel_fnames:
-            show = " ".join(rel_fnames) + "\n"
+            rel_read_only_fnames = [
+                get_rel_fname(fname, root) for fname in (abs_read_only_fnames or [])
+            ]
+            show = self.format_files_for_input(rel_fnames, rel_read_only_fnames)
         if edit_format:
             show += edit_format
         show += "> "
@@ -397,8 +429,13 @@ class InputOutput:
 
             try:
                 if self.prompt_session:
+                    # Use placeholder if set, then clear it
+                    default = self.placeholder or ""
+                    self.placeholder = None
+
                     line = self.prompt_session.prompt(
                         show,
+                        default=default,
                         completer=completer_instance,
                         reserve_space_for_menu=4,
                         complete_style=CompleteStyle.MULTI_COLUMN,
@@ -411,13 +448,38 @@ class InputOutput:
                 self.tool_error(str(err))
                 return ""
 
-            if line and line[0] == "{" and not multiline_input:
-                multiline_input = True
-                inp += line[1:] + "\n"
+            if line.strip("\r\n") and not multiline_input:
+                stripped = line.strip("\r\n")
+                if stripped == "{":
+                    multiline_input = True
+                    multiline_tag = None
+                    inp += ""
+                elif stripped[0] == "{":
+                    # Extract tag if it exists (only alphanumeric chars)
+                    tag = "".join(c for c in stripped[1:] if c.isalnum())
+                    if stripped == "{" + tag:
+                        multiline_input = True
+                        multiline_tag = tag
+                        inp += ""
+                    else:
+                        inp = line
+                        break
+                else:
+                    inp = line
+                    break
                 continue
-            elif line and line[-1] == "}" and multiline_input:
-                inp += line[:-1] + "\n"
-                break
+            elif multiline_input and line.strip():
+                if multiline_tag:
+                    # Check if line is exactly "tag}"
+                    if line.strip("\r\n") == f"{multiline_tag}}}":
+                        break
+                    else:
+                        inp += line + "\n"
+                # Check if line is exactly "}"
+                elif line.strip("\r\n") == "}":
+                    break
+                else:
+                    inp += line + "\n"
             elif multiline_input:
                 inp += line + "\n"
             else:
@@ -431,10 +493,13 @@ class InputOutput:
     def add_to_input_history(self, inp):
         if not self.input_history_file:
             return
-        FileHistory(self.input_history_file).append_string(inp)
-        # Also add to the in-memory history if it exists
-        if hasattr(self, "session") and hasattr(self.session, "history"):
-            self.session.history.append_string(inp)
+        try:
+            FileHistory(self.input_history_file).append_string(inp)
+            # Also add to the in-memory history if it exists
+            if self.prompt_session and self.prompt_session.history:
+                self.prompt_session.history.append_string(inp)
+        except OSError as err:
+            self.tool_warning(f"Unable to write to input history file: {err}")
 
     def get_input_history(self):
         if not self.input_history_file:
@@ -451,14 +516,17 @@ class InputOutput:
             log_file.write(f"{role.upper()} {timestamp}\n")
             log_file.write(content + "\n")
 
+    def display_user_input(self, inp):
+        if self.pretty and self.user_input_color:
+            style = dict(style=self.user_input_color)
+        else:
+            style = dict()
+
+        self.console.print(Text(inp), **style)
+
     def user_input(self, inp, log_only=True):
         if not log_only:
-            if self.pretty and self.user_input_color:
-                style = dict(style=self.user_input_color)
-            else:
-                style = dict()
-
-            self.console.print(Text(inp), **style)
+            self.display_user_input(inp)
 
         prefix = "####"
         if inp:
@@ -477,6 +545,15 @@ class InputOutput:
     def ai_output(self, content):
         hist = "\n" + content.strip() + "\n\n"
         self.append_chat_history(hist)
+
+    def offer_url(self, url, prompt="Open URL for more info?", allow_never=True):
+        """Offer to open a URL in the browser, returns True if opened."""
+        if url in self.never_prompts:
+            return False
+        if self.confirm_ask(prompt, subject=url, allow_never=allow_never):
+            webbrowser.open(url)
+            return True
+        return False
 
     def confirm_ask(
         self,
@@ -672,6 +749,10 @@ class InputOutput:
 
         self.console.print(show_resp)
 
+    def set_placeholder(self, placeholder):
+        """Set a one-time placeholder text for the next input prompt."""
+        self.placeholder = placeholder
+
     def print(self, message=""):
         print(message)
 
@@ -690,9 +771,55 @@ class InputOutput:
             try:
                 with self.chat_history_file.open("a", encoding=self.encoding, errors="ignore") as f:
                     f.write(text)
-            except (PermissionError, OSError):
-                self.tool_error(
-                    f"Warning: Unable to write to chat history file {self.chat_history_file}."
-                    " Permission denied."
-                )
+            except (PermissionError, OSError) as err:
+                print(f"Warning: Unable to write to chat history file {self.chat_history_file}.")
+                print(err)
                 self.chat_history_file = None  # Disable further attempts to write
+
+    def format_files_for_input(self, rel_fnames, rel_read_only_fnames):
+        if not self.pretty:
+            read_only_files = []
+            for full_path in sorted(rel_read_only_fnames or []):
+                read_only_files.append(f"{full_path} (read only)")
+
+            editable_files = []
+            for full_path in sorted(rel_fnames):
+                if full_path in rel_read_only_fnames:
+                    continue
+                editable_files.append(f"{full_path}")
+
+            return "\n".join(read_only_files + editable_files) + "\n"
+
+        output = StringIO()
+        console = Console(file=output, force_terminal=False)
+
+        read_only_files = sorted(rel_read_only_fnames or [])
+        editable_files = [f for f in sorted(rel_fnames) if f not in rel_read_only_fnames]
+
+        if read_only_files:
+            files_with_label = ["Readonly:"] + read_only_files
+            read_only_output = StringIO()
+            Console(file=read_only_output, force_terminal=False).print(Columns(files_with_label))
+            read_only_lines = read_only_output.getvalue().splitlines()
+            console.print(Columns(files_with_label))
+
+        if editable_files:
+            files_with_label = editable_files
+            if read_only_files:
+                files_with_label = ["Editable:"] + editable_files
+                editable_output = StringIO()
+                Console(file=editable_output, force_terminal=False).print(Columns(files_with_label))
+                editable_lines = editable_output.getvalue().splitlines()
+
+                if len(read_only_lines) > 1 or len(editable_lines) > 1:
+                    console.print()
+            console.print(Columns(files_with_label))
+
+        return output.getvalue()
+
+
+def get_rel_fname(fname, root):
+    try:
+        return os.path.relpath(fname, root)
+    except ValueError:
+        return fname

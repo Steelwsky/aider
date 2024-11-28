@@ -26,6 +26,7 @@ def get_parser(default_config_files, git_root):
         description=f"{APP_NAME} is AI pair programming in your terminal",
         add_config_file_help=True,
         default_config_files=default_config_files,
+        config_file_parser_class=configargparse.YAMLConfigFileParser,
         auto_env_var_prefix="AIDER_",
     )
     group = parser.add_argument_group("Main")
@@ -58,13 +59,21 @@ def get_parser(default_config_files, git_root):
         const=opus_model,
         help=f"Use {opus_model} model for the main chat",
     )
-    sonnet_model = "claude-3-5-sonnet-20240620"
+    sonnet_model = "claude-3-5-sonnet-20241022"
     group.add_argument(
         "--sonnet",
         action="store_const",
         dest="model",
         const=sonnet_model,
         help=f"Use {sonnet_model} model for the main chat",
+    )
+    haiku_model = "claude-3-5-haiku-20241022"
+    group.add_argument(
+        "--haiku",
+        action="store_const",
+        dest="model",
+        const=haiku_model,
+        help=f"Use {haiku_model} model for the main chat",
     )
     gpt_4_model = "gpt-4-0613"
     group.add_argument(
@@ -186,6 +195,12 @@ def get_parser(default_config_files, git_root):
         help="Specify a file with context window and costs for unknown models",
     )
     group.add_argument(
+        "--alias",
+        action="append",
+        metavar="ALIAS:MODEL",
+        help="Add a model alias (can be used multiple times)",
+    )
+    group.add_argument(
         "--verify-ssl",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -237,8 +252,8 @@ def get_parser(default_config_files, git_root):
         type=int,
         default=None,
         help=(
-            "Maximum number of tokens to use for chat history. If not specified, uses the model's"
-            " max_chat_history_tokens."
+            "Soft limit on tokens for chat history, after which summarization begins."
+            " If unspecified, defaults to the model's max_chat_history_tokens."
         ),
     )
     # This is a duplicate of the argument in the preparser and is a no-op by this time of
@@ -503,6 +518,12 @@ def get_parser(default_config_files, git_root):
         default=False,
         help="Perform a dry run without modifying files (default: False)",
     )
+    group.add_argument(
+        "--skip-sanity-check-repo",
+        action="store_true",
+        help="Skip the sanity check for the git repository (default: False)",
+        default=False,
+    )
     group = parser.add_argument_group("Fixing and committing")
     group.add_argument(
         "--lint",
@@ -544,6 +565,25 @@ def get_parser(default_config_files, git_root):
     )
 
     ##########
+    group = parser.add_argument_group("Analytics")
+    group.add_argument(
+        "--analytics",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable/disable analytics for current session (default: random)",
+    )
+    group.add_argument(
+        "--analytics-log",
+        metavar="ANALYTICS_LOG_FILE",
+        help="Specify a file to log analytics events",
+    )
+    group.add_argument(
+        "--analytics-disable",
+        action="store_true",
+        help="Permanently disable analytics",
+        default=False,
+    )
+
     group = parser.add_argument_group("Other Settings")
     group.add_argument(
         "--file",
@@ -588,7 +628,13 @@ def get_parser(default_config_files, git_root):
     #     default=True,
     # )
     # group.add_argument(
-    #     "--install-main-branch",
+    #     "--show-release-notes",
+        action=argparse.BooleanOptionalAction,
+        help="Show release notes on first run of new version (default: None, ask user)",
+        default=None,
+    )
+    group.add_argument(
+        "--install-main-branch",
     #     action="store_true",
     #     help="Install the latest version from the main branch",
     #     default=False,
@@ -606,7 +652,13 @@ def get_parser(default_config_files, git_root):
         help="Apply the changes from the given file instead of running the chat (debug)",
     )
     group.add_argument(
-        "--yes",
+        "--apply-clipboard-edits",
+        action="store_true",
+        help="Apply clipboard contents as edits using the main model's editor format",
+        default=False,
+    )
+    group.add_argument(
+        "--yes-always",
         action="store_true",
         help="Always say yes to every confirmation",
         default=None,
@@ -655,6 +707,11 @@ def get_parser(default_config_files, git_root):
         ),
     )
     group.add_argument(
+        "--load",
+        metavar="LOAD_FILE",
+        help="Load and execute /commands from a file on launch",
+    )
+    group.add_argument(
         "--encoding",
         default="utf-8",
         help="Specify the encoding for input and output (default: utf-8)",
@@ -672,8 +729,8 @@ def get_parser(default_config_files, git_root):
     group.add_argument(
         "--gui",
         "--browser",
-        action="store_true",
-        help=f"Run {APP_NAME} in your browser",
+        action=argparse.BooleanOptionalAction,
+        help=f"Run {APP_NAME} in your browser (default: False)",
         default=False,
     )
     group.add_argument(
@@ -681,6 +738,22 @@ def get_parser(default_config_files, git_root):
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Enable/disable suggesting shell commands (default: True)",
+    )
+    group.add_argument(
+        "--fancy-input",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable/disable fancy input with history and completion (default: True)",
+    )
+    group.add_argument(
+        "--detect-urls",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Enable/disable detection and offering to add URLs to chat (default: True)",
+    )
+    group.add_argument(
+        "--editor",
+        help="Specify which editor to use for the /editor command",
     )
     group.add_argument(
         "--pdf-file",
@@ -724,7 +797,6 @@ def get_md_help():
     parser.formatter_class = MarkdownHelpFormatter
 
     return argparse.ArgumentParser.format_help(parser)
-    return parser.format_help()
 
 
 def get_sample_yaml():
@@ -738,7 +810,6 @@ def get_sample_yaml():
     parser.formatter_class = YamlHelpFormatter
 
     return argparse.ArgumentParser.format_help(parser)
-    return parser.format_help()
 
 
 def get_sample_dotenv():
@@ -752,7 +823,6 @@ def get_sample_dotenv():
     parser.formatter_class = DotEnvFormatter
 
     return argparse.ArgumentParser.format_help(parser)
-    return parser.format_help()
 
 
 def main():

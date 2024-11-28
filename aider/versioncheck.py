@@ -22,7 +22,7 @@ def install_from_main_branch(io):
         io,
         None,
         f"Install the development version of aider from the main branch?",
-        ["git+https://github.com/paul-gauthier/aider.git"],
+        ["git+https://github.com/Aider-AI/aider.git"],
         self_update=True,
     )
 
