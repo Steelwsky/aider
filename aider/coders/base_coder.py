@@ -181,8 +181,7 @@ class Coder:
 
     def get_announcements(self):
         lines = []
-        lines.append(f"{APP_NAME} v{__version__}")
-        lines.append(f"***** ***** *****")
+        lines.append(f"{APP_NAME}")
 
         # Model
         main_model = self.main_model

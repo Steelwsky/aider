@@ -5,7 +5,7 @@ import random
 import sys
 
 import streamlit as st
-
+import subprocess
 from aider import urls
 from aider.coders import Coder
 from aider.dump import dump  # noqa: F401

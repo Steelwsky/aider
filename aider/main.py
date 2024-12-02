@@ -111,7 +111,7 @@ def setup_git(git_root, io):
         io.tool_warning(f"You should probably run {APP_NAME} in a directory, not your home dir.")
         return
     elif cwd and io.confirm_ask(
-        f"No git repo found, create one to track {APP_NAME}'s changes (recommended)?"
+            f"No git repo found, create one to track {APP_NAME}'s changes (recommended)?"
     ):
         git_root = str(cwd.resolve())
         repo = make_new_repo(git_root, io)
@@ -245,7 +245,7 @@ def parse_lint_cmds(lint_cmds, io):
         if re.match(r"^[a-z]+:.*", lint_cmd):
             pieces = lint_cmd.split(":")
             lang = pieces[0]
-            cmd = lint_cmd[len(lang) + 1 :]
+            cmd = lint_cmd[len(lang) + 1:]
             lang = lang.strip()
         else:
             lang = None
@@ -400,18 +400,17 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
 
     report_uncaught_exceptions()
 
-    if argv is None:
-        argv = sys.argv[1:]
-    # path = '/Users/steelewski/projects/bunker'
-    # os.environ["APP_PORT"] = "8501"
+    # if argv is None:
+    #     argv = sys.argv[1:]
     path = os.environ.get('APP_DIRECTORY')
-    print(f'PATH BE: {path}')
+    print(f'PATH IS: {path}')
     os.chdir(path)
     argv = [
         '--forced-path', path,
         '--model', os.environ.get('APP_MODEL'),
         '--map-tokens', '1024',
         '--openai-api-key', os.environ.get('APP_API_KEY'),
+        '--anthropic-api-key', os.environ.get('APP_API_KEY'),  # --model is prior, so it is safe to define both keys
         '--openai-api-base', os.environ.get('APP_API_BASE'),
         '--browser',
     ]
@@ -423,8 +422,6 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         git_root = force_git_root
     else:
         git_root = get_git_root()
-
-    print(f'***** git_root: {git_root} *****')
 
     conf_fname = Path(f".{APP_NAME.lower()}.conf.yml")
 
@@ -534,27 +531,27 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         io.tool_warning("Terminal does not support pretty output (UnicodeDecodeError)")
 
     analytics = Analytics(logfile=args.analytics_log, permanently_disable=args.analytics_disable)
-    if args.analytics is not False:
-        if analytics.need_to_ask(args.analytics):
-            io.tool_output(
-                "Aider respects your privacy and never collects your code, chat messages, keys or"
-                " personal info."
-            )
-            io.tool_output(f"For more info: {urls.analytics}")
-            disable = not io.confirm_ask(
-                "Allow collection of anonymous analytics to help improve aider?"
-            )
-
-            analytics.asked_opt_in = True
-            if disable:
-                analytics.disable(permanently=True)
-                io.tool_output("Analytics have been permanently disabled.")
-
-            analytics.save_data()
-            io.tool_output()
-
-        # This is a no-op if the user has opted out
-        analytics.enable()
+    # if args.analytics is not False:
+    #     if analytics.need_to_ask(args.analytics):
+    #         io.tool_output(
+    #             "Aider respects your privacy and never collects your code, chat messages, keys or"
+    #             " personal info."
+    #         )
+    #         io.tool_output(f"For more info: {urls.analytics}")
+    #         disable = not io.confirm_ask(
+    #             "Allow collection of anonymous analytics to help improve aider?"
+    #         )
+    #
+    #         analytics.asked_opt_in = True
+    #         if disable:
+    #             analytics.disable(permanently=True)
+    #             io.tool_output("Analytics have been permanently disabled.")
+    #
+    #         analytics.save_data()
+    #         io.tool_output()
+    #
+    #     # This is a no-op if the user has opted out
+    #     analytics.enable()
 
     analytics.event("launched")
 
@@ -707,8 +704,8 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
             io.tool_output("You can skip this check with --no-show-model-warnings")
 
             try:
-                io.offer_url(urls.model_warnings, "Open documentation url for more info?")
-                io.tool_output()
+                if not io.confirm_ask("Proceed anyway?"):
+                    return 1
             except KeyboardInterrupt:
                 return 1
 
@@ -799,7 +796,6 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         )
     except UnknownEditFormat as err:
         io.tool_error(str(err))
-        io.offer_url(urls.edit_formats, "Open documentation about edit formats?")
         return 1
     except ValueError as err:
         io.tool_error(str(err))
@@ -861,18 +857,6 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
         io.tool_output("VSCode terminal detected, pretty output has been disabled.")
 
     io.tool_output(f'Use /help <question> for help, run "{APP_NAME} --help" to see cmd line args')
-
-    if args.show_release_notes is True:
-        io.tool_output(f"Opening release notes: {urls.release_notes}")
-        io.tool_output()
-        webbrowser.open(urls.release_notes)
-    elif args.show_release_notes is None and is_first_run:
-        io.tool_output()
-        io.offer_url(
-            urls.release_notes,
-            "Would you like to see what's new in this version?",
-            allow_never=False,
-        )
 
     if git_root and Path.cwd().resolve() != Path(git_root).resolve():
         io.tool_warning(
@@ -1033,6 +1017,7 @@ def load_slow_imports(swallow=True):
     except Exception as e:
         if not swallow:
             raise e
+
 
 if __name__ == "__main__":
     status = main()

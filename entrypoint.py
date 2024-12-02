@@ -66,9 +66,12 @@ class ConfigManager:
             print(f"Error loading config: {e}")
         return {
             'api_key': '',
-            'api_base': 'https://integrate.api.nvidia.com/v1',
-            'model': 'openai/nvidia/llama-3.1-nemotron-70b-instruct',
-            'recent_paths': []
+            'api_base': '',
+            'model': '',
+            'recent_paths': [],
+            'recent_api_bases': ['https://integrate.api.nvidia.com/v1'],
+            'recent_models': ['claude-3-5-sonnet-20241022', 'gpt-4o-2024-08-06',
+                              'openai/nvidia/llama-3.1-nemotron-70b-instruct']
         }
 
     def save(self):
@@ -85,13 +88,22 @@ class ConfigManager:
         self.config[key] = value
         self.save()
 
-    def add_recent_path(self, path):
-        recent = self.config.get('recent_paths', [])
-        if path in recent:
-            recent.remove(path)
-        recent.insert(0, path)
-        self.config['recent_paths'] = recent[:10]  # Keep only 10 most recent
+    def add_recent_item(self, key, value, max_items=10):
+        recent = self.config.get(key, [])
+        if value in recent:
+            recent.remove(value)
+        recent.insert(0, value)
+        self.config[key] = recent[:max_items]  # Keep only max_items most recent
         self.save()
+
+    def add_recent_path(self, path):
+        self.add_recent_item('recent_paths', path)
+
+    def add_recent_api_base(self, api_base):
+        self.add_recent_item('recent_api_bases', api_base)
+
+    def add_recent_model(self, model):
+        self.add_recent_item('recent_models', model)
 
 
 class StreamlitThread(QThread):
@@ -187,7 +199,7 @@ class StreamlitLauncher(QMainWindow):
 
     def initUI(self):
         self.setWindowTitle('Streamlit Multi-Instance Launcher')
-        self.setFixedSize(600, 350)
+        self.setFixedSize(600, 400)
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -209,8 +221,8 @@ class StreamlitLauncher(QMainWindow):
         browse_button.clicked.connect(self.browse_directory)
 
         dir_layout = QHBoxLayout()
-        dir_layout.addWidget(self.path_combo)
-        dir_layout.addWidget(browse_button)
+        dir_layout.addWidget(self.path_combo, stretch=80)
+        dir_layout.addWidget(browse_button, stretch=20)
         layout.addLayout(dir_layout)
 
     def setup_api_section(self, layout):
@@ -223,15 +235,24 @@ class StreamlitLauncher(QMainWindow):
         api_layout.addWidget(QLabel('API Key:'))
         api_layout.addWidget(self.api_key_input)
 
-        # API Base
-        self.api_base_input = QLineEdit(self.config.get('api_base', ''))
-        api_layout.addWidget(QLabel('API Base:'))
-        api_layout.addWidget(self.api_base_input)
+        # API Base ComboBox with hint
+        api_base_label = QLabel('API Base:')
+        self.api_base_combo = QComboBox()
+        self.api_base_combo.setEditable(True)
+        self.api_base_combo.addItems(self.config.get('recent_api_bases', []))
+        self.api_base_combo.setCurrentText(self.config.get('api_base', ''))
+        self.api_base_combo.lineEdit().setPlaceholderText(" Leave blank for Anthropic, OpenAI")
+        api_layout.addWidget(api_base_label)
+        api_layout.addWidget(self.api_base_combo)
 
-        # Model
-        self.model_input = QLineEdit(self.config.get('model', ''))
+        # Model ComboBox
+        self.model_combo = QComboBox()
+        self.model_combo.setEditable(True)
+        self.model_combo.addItems(self.config.get('recent_models', []))
+        self.model_combo.setCurrentText(self.config.get('model', ''))
         api_layout.addWidget(QLabel('Model:'))
-        api_layout.addWidget(self.model_input)
+        self.model_combo.lineEdit().setPlaceholderText(" Enter model or select from drop menu")
+        api_layout.addWidget(self.model_combo)
 
         api_group.setLayout(api_layout)
         layout.addWidget(api_group)
@@ -252,18 +273,23 @@ class StreamlitLauncher(QMainWindow):
         if not directory or not os.path.exists(directory):
             return
 
+        api_base = self.api_base_combo.currentText()
+        model = self.model_combo.currentText()
+
         self.config.add_recent_path(directory)
+        self.config.add_recent_api_base(api_base)
+        self.config.add_recent_model(model)
         self.config.set('api_key', self.api_key_input.text())
-        self.config.set('api_base', self.api_base_input.text())
-        self.config.set('model', self.model_input.text())
+        self.config.set('api_base', api_base)
+        self.config.set('model', model)
 
         port = find_available_port()
         thread = StreamlitThread(
             port=port,
             directory=directory,
             api_key=self.api_key_input.text(),
-            api_base=self.api_base_input.text(),
-            model=self.model_input.text()
+            api_base=api_base,
+            model=model
         )
 
         thread.started_successfully.connect(lambda: self.on_instance_started(port))
