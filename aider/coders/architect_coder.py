@@ -10,6 +10,9 @@ class ArchitectCoder(AskCoder):
     def reply_completed(self):
         content = self.partial_response_content
 
+        if not content or not content.strip():
+            return
+
         if not self.io.confirm_ask("Edit the files?"):
             return
 
@@ -25,6 +28,7 @@ class ArchitectCoder(AskCoder):
         kwargs["total_cost"] = self.total_cost
         kwargs["cache_prompts"] = False
         kwargs["num_cache_warming_pings"] = 0
+        kwargs["summarize_from_coder"] = False
 
         new_kwargs = dict(io=self.io, from_coder=self)
         new_kwargs.update(kwargs)

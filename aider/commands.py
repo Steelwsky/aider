@@ -1,9 +1,11 @@
+import glob
 import os
 import re
 import subprocess
 import sys
 import tempfile
 from collections import OrderedDict
+from os.path import expanduser
 from pathlib import Path
 
 import pyperclip
@@ -12,6 +14,7 @@ from prompt_toolkit.completion import Completion, PathCompleter
 from prompt_toolkit.document import Document
 
 from aider import models, prompts, voice
+from aider.editor import pipe_editor
 from aider.format_settings import format_settings
 from aider.help import Help, install_help_extra
 from aider.llm import litellm
@@ -44,7 +47,15 @@ class Commands:
         )
 
     def __init__(
-        self, io, coder, voice_language=None, verify_ssl=True, args=None, parser=None, verbose=False
+        self,
+        io,
+        coder,
+        voice_language=None,
+        verify_ssl=True,
+        args=None,
+        parser=None,
+        verbose=False,
+        editor=None,
     ):
         self.io = io
         self.coder = coder
@@ -59,6 +70,7 @@ class Commands:
         self.voice_language = voice_language
 
         self.help = None
+        self.editor = editor
 
     def cmd_model(self, args):
         "Switch to a new LLM"
@@ -138,7 +150,7 @@ class Commands:
         else:
             self.io.tool_output("Please provide a partial model name to search for.")
 
-    def cmd_web(self, args):
+    def cmd_web(self, args, return_content=False):
         "Scrape a webpage, convert to markdown and send in a message"
 
         url = args.strip()
@@ -157,11 +169,16 @@ class Commands:
             )
 
         content = self.scraper.scrape(url) or ""
-        content = f"{url}:\n\n" + content
+        content = f"Here is the content of {url}:\n\n" + content
+        if return_content:
+            return content
 
-        self.io.tool_output("... done.")
+        self.io.tool_output("... added to chat.")
 
-        return content
+        self.coder.cur_messages += [
+            dict(role="user", content=content),
+            dict(role="assistant", content="Ok."),
+        ]
 
     def is_command(self, inp):
         return inp[0] in "/!"
@@ -222,6 +239,7 @@ class Commands:
 
     def run(self, inp):
         if inp.startswith("!"):
+            self.coder.event("command_run")
             return self.do_run("run", inp[1:])
 
         res = self.matching_commands(inp)
@@ -229,9 +247,13 @@ class Commands:
             return
         matching_commands, first_word, rest_inp = res
         if len(matching_commands) == 1:
-            return self.do_run(matching_commands[0][1:], rest_inp)
+            command = matching_commands[0][1:]
+            self.coder.event(f"command_{command}")
+            return self.do_run(command, rest_inp)
         elif first_word in matching_commands:
-            return self.do_run(first_word[1:], rest_inp)
+            command = first_word[1:]
+            self.coder.event(f"command_{command}")
+            return self.do_run(command, rest_inp)
         elif len(matching_commands) > 1:
             self.io.tool_error(f"Ambiguous command: {', '.join(matching_commands)}")
         else:
@@ -586,7 +608,7 @@ class Commands:
         text = document.text_before_cursor
 
         # Skip the first word and the space after it
-        after_command = " ".join(text.split()[1:])
+        after_command = text.split()[-1]
 
         # Create a new Document object with the text after the command
         new_document = Document(after_command, cursor_position=len(after_command))
@@ -603,16 +625,40 @@ class Commands:
         # Adjust the start_position to replace all of 'after_command'
         adjusted_start_position = -len(after_command)
 
+        # Collect all completions
+        all_completions = []
+
         # Iterate over the completions and modify them
         for completion in path_completer.get_completions(new_document, complete_event):
             quoted_text = self.quote_fname(after_command + completion.text)
-            yield Completion(
-                text=quoted_text,
-                start_position=adjusted_start_position,
-                display=completion.display,
-                style=completion.style,
-                selected_style=completion.selected_style,
+            all_completions.append(
+                Completion(
+                    text=quoted_text,
+                    start_position=adjusted_start_position,
+                    display=completion.display,
+                    style=completion.style,
+                    selected_style=completion.selected_style,
+                )
             )
+
+        # Add completions from the 'add' command
+        add_completions = self.completions_add()
+        for completion in add_completions:
+            if after_command in completion:
+                all_completions.append(
+                    Completion(
+                        text=completion,
+                        start_position=adjusted_start_position,
+                        display=completion,
+                    )
+                )
+
+        # Sort all completions based on their text
+        sorted_completions = sorted(all_completions, key=lambda c: c.text)
+
+        # Yield the sorted completions
+        for completion in sorted_completions:
+            yield completion
 
     def completions_add(self):
         files = set(self.coder.get_all_relative_files())
@@ -630,7 +676,7 @@ class Commands:
             else:
                 try:
                     raw_matched_files = list(Path(self.coder.root).glob(pattern))
-                except IndexError:
+                except (IndexError, AttributeError):
                     raw_matched_files = []
         except ValueError as err:
             self.io.tool_error(f"Error matching {pattern}: {err}")
@@ -701,13 +747,17 @@ class Commands:
                 except OSError as e:
                     self.io.tool_error(f"Error creating file {fname}: {e}")
 
-        for matched_file in all_matched_files:
+        for matched_file in sorted(all_matched_files):
             abs_file_path = self.coder.abs_root_path(matched_file)
 
             if not abs_file_path.startswith(self.coder.root) and not is_image_file(matched_file):
                 self.io.tool_error(
                     f"Can not add {abs_file_path}, which is not within {self.coder.root}"
                 )
+                continue
+
+            if self.coder.repo and self.coder.repo.git_ignored_file(matched_file):
+                self.io.tool_error(f"Can't add {matched_file} which is in gitignore")
                 continue
 
             if abs_file_path in self.coder.abs_fnames:
@@ -725,7 +775,9 @@ class Commands:
                         f"Cannot add {matched_file} as it's not part of the repository"
                     )
             else:
-                if is_image_file(matched_file) and not self.coder.main_model.accepts_images:
+                if is_image_file(matched_file) and not self.coder.main_model.info.get(
+                    "supports_vision"
+                ):
                     self.io.tool_error(
                         f"Cannot add image file {matched_file} as the"
                         f" {self.coder.main_model.name} does not support images."
@@ -759,15 +811,20 @@ class Commands:
             # Expand tilde in the path
             expanded_word = os.path.expanduser(word)
 
-            # Handle read-only files separately, without glob_filtered_to_repo
+            # Handle read-only files with substring matching
             read_only_matched = [f for f in self.coder.abs_read_only_fnames if expanded_word in f]
+            for matched_file in read_only_matched:
+                self.coder.abs_read_only_fnames.remove(matched_file)
+                self.io.tool_output(f"Removed read-only file {matched_file} from the chat")
 
-            if read_only_matched:
-                for matched_file in read_only_matched:
-                    self.coder.abs_read_only_fnames.remove(matched_file)
-                    self.io.tool_output(f"Removed read-only file {matched_file} from the chat")
-
-            matched_files = self.glob_filtered_to_repo(expanded_word)
+            # For editable files, use glob if word contains glob chars, otherwise use substring
+            if any(c in expanded_word for c in "*?[]"):
+                matched_files = self.glob_filtered_to_repo(expanded_word)
+            else:
+                # Use substring matching like we do for read-only files
+                matched_files = [
+                    self.coder.get_rel_fname(f) for f in self.coder.abs_fnames if expanded_word in f
+                ]
 
             if not matched_files:
                 matched_files.append(expanded_word)
@@ -827,9 +884,8 @@ class Commands:
     def cmd_run(self, args, add_on_nonzero_exit=False):
         "Run a shell command and optionally add the output to the chat (alias: !)"
         exit_status, combined_output = run_cmd(
-            args, verbose=self.verbose, error_print=self.io.tool_error
+            args, verbose=self.verbose, error_print=self.io.tool_error, cwd=self.coder.root
         )
-        instructions = None
 
         if combined_output is None:
             return
@@ -837,36 +893,22 @@ class Commands:
         if add_on_nonzero_exit:
             add = exit_status != 0
         else:
-            self.io.tool_output()
-            response = self.io.prompt_ask(
-                "Add the output to the chat?\n(Y)es/(n)o/message with instructions:",
-            ).strip()
-            self.io.tool_output()
-
-            if response.lower() in ["yes", "y"]:
-                add = True
-            elif response.lower() in ["no", "n"]:
-                add = False
-            else:
-                add = True
-                instructions = response
-                if response.strip():
-                    self.io.user_input(response, log_only=True)
-                    self.io.add_to_input_history(response)
+            add = self.io.confirm_ask("Add command output to the chat?")
 
         if add:
-            for line in combined_output.splitlines():
-                self.io.tool_output(line, log_only=True)
+            num_lines = len(combined_output.strip().splitlines())
+            line_plural = "line" if num_lines == 1 else "lines"
+            self.io.tool_output(f"Added {num_lines} {line_plural} of output to the chat.")
 
             msg = prompts.run_output.format(
                 command=args,
                 output=combined_output,
             )
 
-            if instructions:
-                msg = instructions + "\n\n" + msg
-
-            return msg
+            self.coder.cur_messages += [
+                dict(role="user", content=msg),
+                dict(role="assistant", content="Ok."),
+            ]
 
     def cmd_exit(self, args):
         "Exit the application"
@@ -938,6 +980,7 @@ class Commands:
             self.basic_help()
             return
 
+        self.coder.event("interactive help")
         from aider.coders import Coder
 
         if not self.help:
@@ -1140,23 +1183,41 @@ class Commands:
             return
 
         filenames = parse_quoted_filenames(args)
-        for word in filenames:
-            # Expand the home directory if the path starts with "~"
-            expanded_path = os.path.expanduser(word)
-            abs_path = self.coder.abs_root_path(expanded_path)
+        all_paths = []
 
-            if not os.path.exists(abs_path):
-                self.io.tool_error(f"Path not found: {abs_path}")
-                continue
+        # First collect all expanded paths
+        for pattern in filenames:
+            expanded_pattern = expanduser(pattern)
+            if os.path.isabs(expanded_pattern):
+                # For absolute paths, glob it
+                matches = list(glob.glob(expanded_pattern))
+            else:
+                # For relative paths and globs, use glob from the root directory
+                matches = list(Path(self.coder.root).glob(expanded_pattern))
 
+            if not matches:
+                self.io.tool_error(f"No matches found for: {pattern}")
+            else:
+                all_paths.extend(matches)
+
+        # Then process them in sorted order
+        for path in sorted(all_paths):
+            abs_path = self.coder.abs_root_path(path)
             if os.path.isfile(abs_path):
-                self._add_read_only_file(abs_path, word)
+                self._add_read_only_file(abs_path, path)
             elif os.path.isdir(abs_path):
-                self._add_read_only_directory(abs_path, word)
+                self._add_read_only_directory(abs_path, path)
             else:
                 self.io.tool_error(f"Not a file or directory: {abs_path}")
 
     def _add_read_only_file(self, abs_path, original_name):
+        if is_image_file(original_name) and not self.coder.main_model.info.get("supports_vision"):
+            self.io.tool_error(
+                f"Cannot add image file {original_name} as the"
+                f" {self.coder.main_model.name} does not support images."
+            )
+            return
+
         if abs_path in self.coder.abs_read_only_fnames:
             self.io.tool_error(f"{original_name} is already in the chat as a read-only file")
             return
@@ -1210,6 +1271,63 @@ class Commands:
         output = f"{announcements}\n{settings}"
         self.io.tool_output(output)
 
+    def completions_raw_load(self, document, complete_event):
+        return self.completions_raw_read_only(document, complete_event)
+
+    def cmd_load(self, args):
+        "Load and execute commands from a file"
+        if not args.strip():
+            self.io.tool_error("Please provide a filename containing commands to load.")
+            return
+
+        try:
+            with open(args.strip(), "r", encoding=self.io.encoding, errors="replace") as f:
+                commands = f.readlines()
+        except FileNotFoundError:
+            self.io.tool_error(f"File not found: {args}")
+            return
+        except Exception as e:
+            self.io.tool_error(f"Error reading file: {e}")
+            return
+
+        for cmd in commands:
+            cmd = cmd.strip()
+            if not cmd or cmd.startswith("#"):
+                continue
+
+            self.io.tool_output(f"\nExecuting: {cmd}")
+            self.run(cmd)
+
+    def completions_raw_save(self, document, complete_event):
+        return self.completions_raw_read_only(document, complete_event)
+
+    def cmd_save(self, args):
+        "Save commands to a file that can reconstruct the current chat session's files"
+        if not args.strip():
+            self.io.tool_error("Please provide a filename to save the commands to.")
+            return
+
+        try:
+            with open(args.strip(), "w", encoding=self.io.encoding) as f:
+                f.write("/drop\n")
+                # Write commands to add editable files
+                for fname in sorted(self.coder.abs_fnames):
+                    rel_fname = self.coder.get_rel_fname(fname)
+                    f.write(f"/add       {rel_fname}\n")
+
+                # Write commands to add read-only files
+                for fname in sorted(self.coder.abs_read_only_fnames):
+                    # Use absolute path for files outside repo root, relative path for files inside
+                    if Path(fname).is_relative_to(self.coder.root):
+                        rel_fname = self.coder.get_rel_fname(fname)
+                        f.write(f"/read-only {rel_fname}\n")
+                    else:
+                        f.write(f"/read-only {fname}\n")
+
+            self.io.tool_output(f"Saved commands to {args.strip()}")
+        except Exception as e:
+            self.io.tool_error(f"Error saving commands to file: {e}")
+
     def cmd_copy(self, args):
         "Copy the last assistant message to the clipboard"
         all_messages = self.coder.done_messages + self.coder.cur_messages
@@ -1250,6 +1368,13 @@ class Commands:
             title = None
 
         report_github_issue(issue_text, title=title, confirm=False)
+
+    def cmd_editor(self, initial_content=""):
+        "Open an editor to write a prompt"
+
+        user_input = pipe_editor(initial_content, suffix="md", editor=self.editor)
+        if user_input.strip():
+            self.io.set_placeholder(user_input.rstrip())
 
 
 def expand_subdir(file_path):

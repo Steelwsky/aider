@@ -32,6 +32,8 @@ class TestMain(TestCase):
         os.environ["HOME"] = self.homedir_obj.name
         self.input_patcher = patch("builtins.input", return_value=None)
         self.mock_input = self.input_patcher.start()
+        self.webbrowser_patcher = patch("aider.io.webbrowser.open")
+        self.mock_webbrowser = self.webbrowser_patcher.start()
 
     def tearDown(self):
         os.chdir(self.original_cwd)
@@ -40,9 +42,10 @@ class TestMain(TestCase):
         os.environ.clear()
         os.environ.update(self.original_env)
         self.input_patcher.stop()
+        self.webbrowser_patcher.stop()
 
     def test_main_with_empty_dir_no_files_on_command(self):
-        main(["--no-git", "--exit"], input=DummyInput(), output=DummyOutput())
+        main(["--no-git", "--exit", "--yes"], input=DummyInput(), output=DummyOutput())
 
     def test_main_with_emptqy_dir_new_file(self):
         main(["foo.txt", "--yes", "--no-git", "--exit"], input=DummyInput(), output=DummyOutput())
@@ -138,7 +141,7 @@ class TestMain(TestCase):
 
             gitignore.write_text("one\ntwo\n")
             check_gitignore(cwd, io)
-            self.assertEqual("one\ntwo\n.aider*\n", gitignore.read_text())
+            self.assertEqual("one\ntwo\n.aider*\n.env\n", gitignore.read_text())
             del os.environ["GIT_CONFIG_GLOBAL"]
 
     def test_main_args(self):
@@ -329,7 +332,7 @@ class TestMain(TestCase):
     def test_false_vals_in_env_file(self):
         self.create_env_file(".env", "AIDER_SHOW_DIFFS=off")
         with patch("aider.coders.Coder.create") as MockCoder:
-            main(["--no-git"], input=DummyInput(), output=DummyOutput())
+            main(["--no-git", "--yes"], input=DummyInput(), output=DummyOutput())
             MockCoder.assert_called_once()
             _, kwargs = MockCoder.call_args
             self.assertEqual(kwargs["show_diffs"], False)
@@ -337,7 +340,7 @@ class TestMain(TestCase):
     def test_true_vals_in_env_file(self):
         self.create_env_file(".env", "AIDER_SHOW_DIFFS=on")
         with patch("aider.coders.Coder.create") as MockCoder:
-            main(["--no-git"], input=DummyInput(), output=DummyOutput())
+            main(["--no-git", "--yes"], input=DummyInput(), output=DummyOutput())
             MockCoder.assert_called_once()
             _, kwargs = MockCoder.call_args
             self.assertEqual(kwargs["show_diffs"], True)
@@ -378,7 +381,11 @@ class TestMain(TestCase):
     def test_verbose_mode_lists_env_vars(self):
         self.create_env_file(".env", "AIDER_DARK_MODE=on")
         with patch("sys.stdout", new_callable=StringIO) as mock_stdout:
-            main(["--no-git", "--verbose", "--exit"], input=DummyInput(), output=DummyOutput())
+            main(
+                ["--no-git", "--verbose", "--exit", "--yes"],
+                input=DummyInput(),
+                output=DummyOutput(),
+            )
             output = mock_stdout.getvalue()
             relevant_output = "\n".join(
                 line
@@ -629,6 +636,49 @@ class TestMain(TestCase):
                 return_coder=True,
             )
             self.assertTrue(coder.suggest_shell_commands)
+
+    def test_detect_urls_default(self):
+        with GitTemporaryDirectory():
+            coder = main(
+                ["--exit", "--yes"],
+                input=DummyInput(),
+                output=DummyOutput(),
+                return_coder=True,
+            )
+            self.assertTrue(coder.detect_urls)
+
+    def test_detect_urls_disabled(self):
+        with GitTemporaryDirectory():
+            coder = main(
+                ["--no-detect-urls", "--exit", "--yes"],
+                input=DummyInput(),
+                output=DummyOutput(),
+                return_coder=True,
+            )
+            self.assertFalse(coder.detect_urls)
+
+    def test_detect_urls_enabled(self):
+        with GitTemporaryDirectory():
+            coder = main(
+                ["--detect-urls", "--exit", "--yes"],
+                input=DummyInput(),
+                output=DummyOutput(),
+                return_coder=True,
+            )
+            self.assertTrue(coder.detect_urls)
+
+    def test_invalid_edit_format(self):
+        with GitTemporaryDirectory():
+            with patch("aider.io.InputOutput.offer_url") as mock_offer_url:
+                result = main(
+                    ["--edit-format", "not-a-real-format", "--exit", "--yes"],
+                    input=DummyInput(),
+                    output=DummyOutput(),
+                )
+                self.assertEqual(result, 1)  # main() should return 1 on error
+                mock_offer_url.assert_called_once()
+                args, _ = mock_offer_url.call_args
+                self.assertEqual(args[0], "https://aider.chat/docs/more/edit-formats.html")
 
     def test_chat_language_spanish(self):
         with GitTemporaryDirectory():
