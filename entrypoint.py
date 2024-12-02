@@ -199,7 +199,7 @@ class StreamlitLauncher(QMainWindow):
 
     def initUI(self):
         self.setWindowTitle('Streamlit Multi-Instance Launcher')
-        self.setFixedSize(600, 400)
+        self.setFixedSize(600, 360)
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
