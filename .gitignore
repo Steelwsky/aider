@@ -16,3 +16,4 @@ aider/__version__.py
 .venv/
 history.json
 .idea/
+config.json
